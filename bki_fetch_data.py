@@ -11,11 +11,11 @@ import pyodbc
 # Variables for query connections
 # =============================================================================
 server_04 = 'sqlsrv04'
-db_04 = 'BKI_Datastore'
-con_04 = pyodbc.connect(f'DRIVER=SQL Server;SERVER={server_04};DATABASE={db_04};autocommit=True')
-params_04 = urllib.parse.quote_plus(f'DRIVER=SQL Server Native Client 11.0;SERVER={server_04};DATABASE={db_04};Trusted_Connection=yes')
-engine_04 = create_engine(f'mssql+pyodbc:///?odbc_connect={params_04}')
-cursor_04 = con_04.cursor()
+db_ds = 'BKI_Datastore'
+con_ds = pyodbc.connect(f'DRIVER=SQL Server;SERVER={server_04};DATABASE={db_ds};autocommit=True')
+params_ds = urllib.parse.quote_plus(f'DRIVER=SQL Server Native Client 11.0;SERVER={server_04};DATABASE={db_ds};Trusted_Connection=yes')
+engine_ds = create_engine(f'mssql+pyodbc:///?odbc_connect={params_ds}')
+cursor_ds = con_ds.cursor()
 
 server_nav = r'SQLSRV03\NAVISION'
 db_nav = 'NAV100-DRIFT'
@@ -76,8 +76,7 @@ def get_coffee_contracts() -> pd.DataFrame():
             	ON PL.[No_] = I.[No_]
             LEFT JOIN [dbo].[BKI foods a_s$Country_Region] AS CR
             	ON PH.[Pay-to Country_Region Code] = CR.[Code]
-            WHERE PH.[Kontrakt] = 1
-            """
+            WHERE PH.[Kontrakt] = 1 """
     df = pd.read_sql(query, con_nav)
     return df
 
@@ -86,19 +85,73 @@ def get_recipe_information() -> pd.DataFrame():
     """
     Returns masterdata for recipes (blends of green coffee) as a pandas DataFrame.
     """
-    query = """SELECT PRI.[CUSTOMER_CODE] AS [Receptnummer]
+    query = """ SELECT PRI.[CUSTOMER_CODE] AS [Receptnummer]
         	,PRI.[COLOR] AS [Farve sætpunkt] ,I.[Mærkningsordning]
             FROM [dbo].[BKI foods a_s$PROBAT Item] AS PRI
             INNER JOIN [dbo].[BKI foods a_s$Item] AS I
             	ON PRI.[CUSTOMER_CODE] = I.[No_]
-            WHERE PRI.[CUSTOMER_CODE] LIKE '1040%'"""
+            WHERE PRI.[CUSTOMER_CODE] LIKE '1040%' """
     df = pd.read_sql(query, con_nav)
     return df
 
 
+# Get all records for grades given to green coffe
+def get_gc_grades() -> pd.DataFrame():
+    """
+    Returns all grades given to green coffees as a pandas DataFrame.
+    Only records where grading has resulted in an approval of the product are included.
+    Rejected gradings are excluded since these product would never make it to production.
+    Only one of the grading-parameters need to be used for a record to be included.
+    Grading done for all of syre, krop, aroma, eftersmag, robusta is not guarenteed.
+    """
+    query = """ SELECT S.[Dato] ,S.[Bruger] ,S.[Kontraktnummer] ,RRP.[Delivery] AS [Modtagelse]
+        	,ST.[Beskrivelse] AS [Smagningstype] ,S.[Smag_Syre] AS [Syre]
+        	,S.[Smag_Krop] AS [Krop] ,S.[Smag_Aroma] AS [Aroma]
+        	,S.[Smag_Eftersmag] AS [Eftersmag] ,S.[Smag_Robusta] AS [Robusta]
+        	,CASE WHEN S.[Status] = 1 THEN 'Godkendt' 
+                WHEN S.[Status] = 0 THEN 'Afvist' ELSE 'Ej smagt' END AS [Status]
+        	,S.[Bemærkning]
+            FROM [cof].[Smageskema] AS S
+            LEFT JOIN [cof].[Smagningstype] AS ST
+            	ON S.[Smagningstype] = ST.[Id]
+            LEFT JOIN [cof].[Risteri_råkaffe_planlægning] AS RRP
+            	ON S.[Id_org] = RRP.[Id]
+            	AND S.[Id_org_kildenummer] = 1
+            WHERE S.[Kontraktnummer] IS NOT NULL
+            	AND COALESCE(S.[Smag_Syre],S.[Smag_Krop],S.[Smag_Aroma],S.[Smag_Eftersmag],S.[Smag_Robusta]) IS NOT NULL
+            AND S.[Status] = 1 """
+    df = pd.read_sql(query, con_ds)
+    return df
+
+# Get all records for grades given to finished goods
+def get_finished_goods_grades() -> pd.DataFrame():
+    """
+    Returns all grades given to finished goods as a pandas DataFrame.
+    Records are included whether or not the finished product has been approved or rejected.
+    Any given order number 'ordrenummer' may have multiple records related to it.
+    Only one of the grading-parameters need to be used for a record to be included.
+    Grading done for all of syre, krop, aroma, eftersmag, robusta is not guarenteed.
+    """
+    query = """ SELECT S.[Dato] ,S.[Bruger] ,S.[Referencenummer] AS [Ordrenummer]
+        	,S.[Smag_Syre] AS [Syre] ,S.[Smag_Krop] AS [Krop] ,S.[Smag_Aroma] AS [Aroma]
+        	,S.[Smag_Eftersmag] AS [Eftersmag] ,S.[Smag_Robusta] AS [Robusta]
+        	,CASE WHEN S.[Status] = 1 THEN 'Godkendt' WHEN S.[Status] = 0 THEN 'Afvist'
+        		ELSE 'Ej smagt' END AS [Status]
+        	,S.[Bemærkning] ,KP.[Silo]
+            FROM [cof].[Smageskema] AS S
+            LEFT JOIN [cof].[Kontrolskema_prøver] AS KP
+            	ON S.[Id_org] = KP.[Id]
+            	AND S.[Id_org_kildenummer] = 6
+            WHERE COALESCE(S.[Smag_Syre],S.[Smag_Krop],S.[Smag_Aroma],S.[Smag_Eftersmag],S.[Smag_Robusta]) IS NOT NULL
+            	AND S.[Referencetype] = 2
+            	AND S.[Referencenummer] IS NOT NULL
+                AND S.[Varenummer] NOT LIKE '1090%' """
+    df = pd.read_sql(query, con_ds)
+    return df
+    
 
 
-df_temp = get_recipe_information()
+df_temp = get_finished_goods_grades()
 print(df_temp)
 
 
@@ -198,7 +251,7 @@ query_ds_orders = """SELECT	DISTINCT [Referencenummer] AS [Ordrenummer]
                      WHERE COALESCE(S.[Smag_Syre],S.[Smag_Krop],S.[Smag_Aroma],S.[Smag_Eftersmag],S.[Smag_Robusta]) IS NOT NULL
                      AND S.[Referencetype] = 2 AND S.[Referencenummer] IS NOT NULL
                      AND S.[Varenummer] NOT LIKE '1090%' """
-df_ds_orders = pd.read_sql(query_ds_orders, con_04)        
+df_ds_orders = pd.read_sql(query_ds_orders, con_ds)        
                      
 ds_orders_list = df_ds_orders['Ordrenummer'].to_list()
 po_sql_string = string_to_sql(ds_orders_list)
