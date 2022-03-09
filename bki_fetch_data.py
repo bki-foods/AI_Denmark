@@ -51,6 +51,28 @@ def string_to_sql(list_with_values: list) -> str:
     else:
         return "'{}'".format("','".join(list_with_values))
 
+# Get info from assembly and production orders in Navision
+query_order_info = """ SELECT PAH.[No_] AS [Ordrenummer],PAH.[Item No_] AS [Varenummer]
+                        FROM [dbo].[BKI foods a_s$Posted Assembly Header] AS PAH
+                        INNER JOIN [dbo].[BKI foods a_s$Item] AS I
+                            ON PAH.[Item No_] = I.[No_]
+                        WHERE I.[Item Category Code] = 'FÆR KAFFE'
+                            AND I.[Display Item] = 1
+                        UNION ALL
+                        SELECT PO.[No_],PO.[Source No_]
+                        FROM [dbo].[BKI foods a_s$Production Order] AS PO
+                        INNER JOIN [dbo].[BKI foods a_s$Item] AS I
+                            ON PO.[Source No_] = I.[No_]
+                        WHERE PO.[Status] IN (2,3,4) AND I.[Item Category Code] <> 'RÅKAFFE' """
+df_order_info = pd.read_sql(query_order_info, con_nav)
+def get_nav_order_info(order_no: str) -> str:
+    """
+    Input order number and get the item number returned based on production and assembly orders in Navision.
+    Query is executed upon import of script, and not each time this function is called.
+    """
+    df_temp = df_order_info[df_order_info['Ordrenummer'] == order_no]
+    if len(df_temp) > 0:
+        return df_temp['Varenummer'].iloc[0]
 
 
 # Get information from coffee contracts from Navision
@@ -150,36 +172,56 @@ def get_finished_goods_grades() -> pd.DataFrame():
     return df
     
 
-
-df_temp = get_finished_goods_grades()
-print(df_temp)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+def get_nav_order_related() -> pd.DataFrame():
+    """
+    Returns a set of orders and the directly related orders from Navision returned as a pandas DataFrame.
+    Does not relate directly to roasting orders in all cases just yet
+    """
+    # Get dataframe with orders given grades, convert til liste and string used for SQL query.
+    df_orders = get_finished_goods_grades()
+    graded_orders_list = df_orders['Ordrenummer'].unique().tolist()
+    po_sql_string = string_to_sql(graded_orders_list)    
+    # Get related orders from Navision
+    query_nav_order_related = f""" SELECT [Prod_ Order No_] AS [Ordre] 
+                                   ,[Reserved Prod_ Order No_] AS [Relateret ordre]
+                                   FROM [dbo].[BKI foods a_s$Reserved Prod_ Order No_]
+                                   WHERE [Prod_ Order No_] IN ({po_sql_string})
+                                   AND [Invalid] = 0 """
+    df_nav_order_related = pd.read_sql(query_nav_order_related, con_nav)  
+    return df_nav_order_related
 
 
 
 
 
 
-# Get info from assembly and production orders in Navision
-def get_nav_order_info(order_no):
-    df_temp = df_nav_order_info[df_nav_order_info['Ordrenummer'] == order_no]
-    if len(df_temp) > 0:
-        return df_temp['Varenummer'].iloc[0]
+
+
+
+def get_list_of_missing_reservations():
+    """
+    Returns a list of orders which do not have the required reservations in Navision
+    """
+    df_orders = get_finished_goods_grades()
+    df_nav_orders = get_nav_order_related()
+    graded_orders_list = df_orders['Ordrenummer'].unique().tolist()
+    missing_orders = list(set(graded_orders_list) - set(df_nav_orders['Ordre']))
+    print(missing_orders)
+    return missing_orders
+
+
+
+
+
+
+
+# WIP below
+
+
+
+
+
+
 
 def get_probat_orders_direct(order_no):
     query_probat_orders = f""" SELECT DISTINCT
@@ -202,59 +244,20 @@ def get_probat_orders_direct(order_no):
                         WHERE PB.[ORDER_NAME] IN( {order_no}) """
     return pd.read_sql(query_probat_orders, con_probat)
 
-def get_nav_orders(order_no, return_type):
-    # Get related orders from Navision
-    query_nav_order_related = f"""
-                           SELECT [Prod_ Order No_] AS [Ordre] 
-                           ,[Reserved Prod_ Order No_] AS [Relateret ordre]
-                           FROM [dbo].[BKI foods a_s$Reserved Prod_ Order No_]
-                           WHERE [Prod_ Order No_] IN ({order_no})
-                           AND [Invalid] = 0 """
-    df_nav_order_related = pd.read_sql(query_nav_order_related, con_nav)  
-    if return_type == 'liste':
-        return df_nav_order_related['Relateret ordre'].to_list()
-    if return_type == 'df':
-        return df_nav_order_related
-    
+
     
 def get_probat_orders_using_nav(order_no):
-    query_probat_lg = f""" SELECT DISTINCT
-                    	[ORDER_NAME] AS [Ordre]
-                    	,[S_ORDER_NAME] AS [Relateret ordre]
-                    FROM [dbo].[PRO_EXP_ORDER_LOAD_G]
-                    WHERE [ORDER_NAME] = '{order_no}' 
-                        AND [S_ORDER_NAME] <> 'REWORK ROAST' """
+    query_probat_lg = f""" SELECT [ORDER_NAME] AS [Ordre]
+                           ,[S_ORDER_NAME] AS [Relateret ordre]
+                           FROM [dbo].[PRO_EXP_ORDER_LOAD_G]
+                           WHERE [ORDER_NAME] IN ({order_no}) 
+                               AND [S_ORDER_NAME] <> 'REWORK ROAST'
+                           GROUP BY [ORDER_NAME], [S_ORDER_NAME] """
     df_query_probat_lg = pd.read_sql(query_probat_lg, con_probat)
     return df_query_probat_lg
 
 
-# Query for NAV order info
-query_nav_order_info = """ SELECT PAH.[No_] AS [Ordrenummer]
-                       ,PAH.[Item No_] AS [Varenummer]
-                       FROM [dbo].[BKI foods a_s$Posted Assembly Header] AS PAH
-                       INNER JOIN [dbo].[BKI foods a_s$Item] AS I
-                           ON PAH.[Item No_] = I.[No_]
-                       WHERE I.[Item Category Code] = 'FÆR KAFFE'
-                           AND I.[Display Item] = 1
-                       UNION ALL
-                       SELECT PO.[No_],PO.[Source No_]
-                       FROM [dbo].[BKI foods a_s$Production Order] AS PO
-                       INNER JOIN [dbo].[BKI foods a_s$Item] AS I
-                           ON PO.[Source No_] = I.[No_]
-                       WHERE PO.[Status] IN (2,3,4)
-                           AND I.[Item Category Code] <> 'RÅKAFFE' """
-df_nav_order_info = pd.read_sql(query_nav_order_info, con_nav)
 
-# Query to get all relevant orders from BKI_Datastore
-query_ds_orders = """SELECT	DISTINCT [Referencenummer] AS [Ordrenummer]
-                     FROM [cof].[Smageskema] AS S
-                     WHERE COALESCE(S.[Smag_Syre],S.[Smag_Krop],S.[Smag_Aroma],S.[Smag_Eftersmag],S.[Smag_Robusta]) IS NOT NULL
-                     AND S.[Referencetype] = 2 AND S.[Referencenummer] IS NOT NULL
-                     AND S.[Varenummer] NOT LIKE '1090%' """
-df_ds_orders = pd.read_sql(query_ds_orders, con_ds)        
-                     
-ds_orders_list = df_ds_orders['Ordrenummer'].to_list()
-po_sql_string = string_to_sql(ds_orders_list)
 
 df_order_relations_total = pd.DataFrame()
 
@@ -274,12 +277,6 @@ df_order_relations_total = pd.DataFrame()
 # df_order_relations_total.drop_duplicates(subset=['Ordre','Relateret ordre'], inplace=True)
 # df_order_relations_total['Varenr'] = df_order_relations_total['Relateret ordre'].apply(lambda x: get_nav_order_info(x))
 # df_order_relations_total.dropna(inplace=True)
-
-
-# # Print de ordrer der ikke er i endelig dataframe
-# missing_orders = list(set(ds_orders_list) - set(df_order_relations_total['Ordre']))
-# print(missing_orders)
-
                
                      
                      
@@ -287,15 +284,4 @@ df_order_relations_total = pd.DataFrame()
                      
                      
                      
-                     
-                     
-                     
-                     
-                     
-                     
-                     
-                     
-                     
-                     
-                     
-                     
+    
