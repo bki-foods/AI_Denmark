@@ -3,6 +3,7 @@
 
 import urllib
 import pandas as pd
+import numpy as np
 from sqlalchemy import create_engine
 import pyodbc
 
@@ -254,18 +255,63 @@ def get_probat_orders_related() -> pd.DataFrame():
 
 
 
+# =============================================================================
+# 
+# df_temp = pd.concat([get_nav_order_related(), get_probat_orders_related()])
+# temp_list = get_list_of_missing_values(get_finished_goods_grades()
+#                                         ,'Ordrenummer'
+#                                         ,df_temp
+#                                         ,'Ordre')
+# print(temp_list)
+# 
+# =============================================================================
 
-df_temp = pd.concat([get_nav_order_related(), get_probat_orders_related()])
-print(df_temp)
 
 
 
+# Get roasting orders from grinding orders from Probat
+def get_order_relationships_final() -> pd.DataFrame():
+    """
+    Adds roasting orders to the complete dataframe with Navision and Probat related orders.
+    Returns a new dataframe with roasting orders added
+    """
+    # Read all orders from Probat. Roasting orders are unioned to ease data transformation in final df.
+    query = """ SELECT [ORDER_NAME],[S_ORDER_NAME]
+                FROM [dbo].[PRO_EXP_ORDER_LOAD_G]
+                WHERE [S_ORDER_NAME] <> 'REWORK ROAST'
+                GROUP BY [ORDER_NAME],[S_ORDER_NAME]
+                UNION ALL
+                SELECT [ORDER_NAME],[ORDER_NAME]
+                FROM [dbo].[PRO_EXP_ORDER_UNLOAD_R]
+                WHERE [ORDER_NAME] IS NOT NULL
+                GROUP BY [ORDER_NAME],[ORDER_NAME] """
+    df_orders = pd.read_sql(query, con_probat)
+    # Get a dataframe with Probat and Navision relationships unioned.
+    df_orders_total = pd.concat([get_nav_order_related(), get_probat_orders_related()])
+    # Left join roasting orders on df_orders_total
+    df_with_roasting_orders = pd.merge(
+                                df_orders_total
+                                ,df_orders
+                                ,left_on='Relateret ordre'
+                                ,right_on='ORDER_NAME'
+                                ,how='left')
+    #df_with_roasting_orders['Final_order'] = df_with_roasting_orders['S_ORDER_NAME'].combine_first(df_with_roasting_orders['Relateret ordre'])
+
+    df_orders_final = pd.DataFrame()
+    df_orders_final[['Ordre','Relateret ordre']] = df_with_roasting_orders[['Ordre','S_ORDER_NAME']]
+    df_orders_final.dropna(inplace=True)
+    return df_orders_final
+    
+
+df_temp = get_order_relationships_final()
 
 
-# get_finished_goods_grades() --> Order column = 'Ordrenummer'
-# get_nav_order_related() --> order column = 'Ordre'
 
-
+temp_list = get_list_of_missing_values(get_finished_goods_grades()
+                                        ,'Ordrenummer'
+                                        ,get_order_relationships_final()
+                                        ,'Ordre')
+print(temp_list)
 
 
 
@@ -300,17 +346,6 @@ def get_probat_orders_direct(order_no):
 
 
     
-def get_probat_orders_using_nav(order_no):
-    query_probat_lg = f""" SELECT [ORDER_NAME] AS [Ordre]
-                           ,[S_ORDER_NAME] AS [Relateret ordre]
-                           FROM [dbo].[PRO_EXP_ORDER_LOAD_G]
-                           WHERE [ORDER_NAME] IN ({order_no}) 
-                               AND [S_ORDER_NAME] <> 'REWORK ROAST'
-                           GROUP BY [ORDER_NAME], [S_ORDER_NAME] """
-    df_query_probat_lg = pd.read_sql(query_probat_lg, con_probat)
-    return df_query_probat_lg
-
-
 
 
 df_order_relations_total = pd.DataFrame()
