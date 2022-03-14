@@ -248,27 +248,6 @@ def get_probat_orders_related() -> pd.DataFrame():
     df = pd.read_sql(query, con_probat)
     return df
 
-
-
-
-
-
-
-
-# =============================================================================
-# 
-# df_temp = pd.concat([get_nav_order_related(), get_probat_orders_related()])
-# temp_list = get_list_of_missing_values(get_finished_goods_grades()
-#                                         ,'Ordrenummer'
-#                                         ,df_temp
-#                                         ,'Ordre')
-# print(temp_list)
-# 
-# =============================================================================
-
-
-
-
 # Get roasting orders from grinding orders from Probat
 def get_order_relationships_final() -> pd.DataFrame():
     """
@@ -295,13 +274,27 @@ def get_order_relationships_final() -> pd.DataFrame():
                                 ,left_on='Relateret ordre'
                                 ,right_on='ORDER_NAME'
                                 ,how='left')
-    #df_with_roasting_orders['Final_order'] = df_with_roasting_orders['S_ORDER_NAME'].combine_first(df_with_roasting_orders['Relateret ordre'])
-
+    # Prepare final dataframe
     df_orders_final = pd.DataFrame()
     df_orders_final[['Ordre','Relateret ordre']] = df_with_roasting_orders[['Ordre','S_ORDER_NAME']]
     df_orders_final.dropna(inplace=True)
     return df_orders_final
     
+
+
+
+# =============================================================================
+# 
+# df_temp = pd.concat([get_nav_order_related(), get_probat_orders_related()])
+# temp_list = get_list_of_missing_values(get_finished_goods_grades()
+#                                         ,'Ordrenummer'
+#                                         ,df_temp
+#                                         ,'Ordre')
+# print(temp_list)
+# 
+# =============================================================================
+
+
 
 df_temp = get_order_relationships_final()
 
@@ -350,22 +343,7 @@ def get_probat_orders_direct(order_no):
 
 df_order_relations_total = pd.DataFrame()
 
-# # Using only Probat and only NAV direct
-# df_order_relations_total = pd.concat([df_order_relations_total 
-#                                      ,get_probat_orders_direct(po_sql_string)
-#                                      ,get_nav_orders(po_sql_string, 'df')
-#                                      ])
-#     # # Using Probat by using NAv for first step
-#     # for order_nav in get_nav_orders(order, 'liste'):
-#     #     df_order_relations_total = pd.concat( [df_order_relations_total
-#     #                                            ,get_probat_orders_using_nav(order_nav)
-#     #                                            ])
 
-
-# df_order_relations_total.reset_index(inplace=True)
-# df_order_relations_total.drop_duplicates(subset=['Ordre','Relateret ordre'], inplace=True)
-# df_order_relations_total['Varenr'] = df_order_relations_total['Relateret ordre'].apply(lambda x: get_nav_order_info(x))
-# df_order_relations_total.dropna(inplace=True)
                
                      
                      
