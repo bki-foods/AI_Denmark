@@ -23,11 +23,11 @@ con_nav = pyodbc.connect(f'DRIVER=SQL Server;SERVER={server_nav};DATABASE={db_na
 params_nav = urllib.parse.quote_plus(f'DRIVER=SQL Server Native Client 11.0;SERVER={server_nav};DATABASE={db_nav};Trusted_Connection=yes')
 engine_nav = create_engine(f'mssql+pyodbc:///?odbc_connect={params_nav}')
 
-# server_probat = '192.168.125.161'
-# db_probat = 'BKI_IMP_EXP'
-# con_probat = pyodbc.connect(f'DRIVER=SQL Server;SERVER={server_probat};DATABASE={db_probat};uid=bki_read;pwd=Probat2016')
-# params_probat = urllib.parse.quote_plus(f'DRIVER=SQL Server Native Client 11.0;SERVER={server_probat};DATABASE={db_probat};Trusted_Connection=yes')
-# engine_probat = create_engine(f'mssql+pyodbc:///?odbc_connect={params_probat}')
+server_probat = '192.168.125.161'
+db_probat = 'BKI_IMP_EXP'
+con_probat = pyodbc.connect(f'DRIVER=SQL Server;SERVER={server_probat};DATABASE={db_probat};uid=bki_read;pwd=Probat2016')
+params_probat = urllib.parse.quote_plus(f'DRIVER=SQL Server Native Client 11.0;SERVER={server_probat};DATABASE={db_probat};Trusted_Connection=yes')
+engine_probat = create_engine(f'mssql+pyodbc:///?odbc_connect={params_probat}')
 
 
     
@@ -50,6 +50,33 @@ def string_to_sql(list_with_values: list) -> str:
         return ''
     else:
         return "'{}'".format("','".join(list_with_values))
+
+# Compare two dataframes with specified columns and see if dataframe 2 is missing any values compared to dataframe 1
+def get_list_of_missing_values(df_total:pd.DataFrame(), total_column_name:str, df_compare:pd.DataFrame(), compare_column_name:str) -> list:
+    """
+    Compares the values in two specified columns from two specified dataframes and returns a list of any values present in first dataframe,
+    that does not exist in the second.
+    
+    Parameters
+    ----------
+    df_total : pd.DataFrame()
+        A dataframe containing rows with all the values which the second dataframe is to be compared to.
+    total_column_name : str
+        Name of the column with values which are to be compared with .
+    df_compare : pd.DataFrame()
+        A dataframe containing rows with values which are to be compared to the first dataframe.
+    compare_column_name : str
+        Name of the column with values which are to be compared with the first dataframe.
+
+    Returns
+    -------
+    missing_values : List
+        Returns a list with all values present in the first dataframe that cannot be found in the second dataframe..
+    """
+    total_values_list = df_total[total_column_name].unique().tolist()
+    compare_values_list = df_compare[compare_column_name].unique().tolist()
+    missing_values = list(set(total_values_list) - set(compare_values_list))
+    return missing_values
 
 # Get info from assembly and production orders in Navision
 query_order_info = """ SELECT PAH.[No_] AS [Ordrenummer],PAH.[Item No_] AS [Varenummer]
@@ -171,11 +198,10 @@ def get_finished_goods_grades() -> pd.DataFrame():
     df = pd.read_sql(query, con_ds)
     return df
     
-
+# Get all related orders from Navision for orders which have been given a grade
 def get_nav_order_related() -> pd.DataFrame():
     """
     Returns a set of orders and the directly related orders from Navision returned as a pandas DataFrame.
-    Does not relate directly to roasting orders in all cases just yet
     """
     # Get dataframe with orders given grades, convert til liste and string used for SQL query.
     df_orders = get_finished_goods_grades()
@@ -190,26 +216,54 @@ def get_nav_order_related() -> pd.DataFrame():
     df_nav_order_related = pd.read_sql(query_nav_order_related, con_nav)  
     return df_nav_order_related
 
-
-
-
-
-
-
-
-
-def get_list_of_missing_reservations():
+# Get all related orders from Probat for remainder of orders, which have no reservations in Navision
+def get_probat_orders_related() -> pd.DataFrame():
     """
-    Returns a list of orders which do not have the required reservations in Navision
+    Returns a set of orders and the directly related orders from Probat returned as a pandas DataFrame.
+    Only returns orders which have no relationships defined in Navision
     """
-    df_orders = get_finished_goods_grades()
-    df_nav_orders = get_nav_order_related()
-    graded_orders_list = df_orders['Ordrenummer'].unique().tolist()
-    missing_orders = list(set(graded_orders_list) - set(df_nav_orders['Ordre']))
-    print(missing_orders)
-    return missing_orders
+    # Get a list of orders which do not have valid relationships defined in Navision
+    orders_to_search = get_list_of_missing_values(get_finished_goods_grades()
+                                                  ,'Ordrenummer'
+                                                  ,get_nav_order_related()
+                                                  ,'Ordre')
+    # Convert list to a string valid for SQL query
+    sql_search_string = string_to_sql(orders_to_search)
+    
+    query = f""" WITH CTE_ORDERS AS (
+                SELECT [ORDER_NAME] AS [Ordre] ,[S_ORDER_NAME] AS [Relateret ordre]
+                FROM [dbo].[PRO_EXP_ORDER_SEND_PG]
+                WHERE [S_ORDER_NAME] <> 'Retour Ground' AND [ORDER_NAME] <> ''
+                GROUP BY [ORDER_NAME],[S_ORDER_NAME]
+                UNION ALL
+                SELECT [ORDER_NAME] AS [Ordre] ,[S_ORDER_NAME] AS [Relateret ordre]
+                FROM [dbo].[PRO_EXP_ORDER_SEND_PB]
+                WHERE [S_ORDER_NAME] <> 'Retour Ground' AND [ORDER_NAME] <> ''
+                GROUP BY [ORDER_NAME],[S_ORDER_NAME]
+                )
+                SELECT *
+                FROM CTE_ORDERS
+                WHERE [Ordre] IN ({sql_search_string}) """
+    df = pd.read_sql(query, con_probat)
+    return df
 
 
+
+
+
+
+
+
+
+df_temp = pd.concat([get_nav_order_related(), get_probat_orders_related()])
+print(df_temp)
+
+
+
+
+
+# get_finished_goods_grades() --> Order column = 'Ordrenummer'
+# get_nav_order_related() --> order column = 'Ordre'
 
 
 
