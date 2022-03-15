@@ -3,7 +3,6 @@
 
 import urllib
 import pandas as pd
-import numpy as np
 from sqlalchemy import create_engine
 import pyodbc
 
@@ -249,7 +248,7 @@ def get_probat_orders_related() -> pd.DataFrame():
     return df
 
 # Get roasting orders from grinding orders from Probat
-def get_order_relationships_final() -> pd.DataFrame():
+def get_order_relationships() -> pd.DataFrame():
     """
     Adds roasting orders to the complete dataframe with Navision and Probat related orders.
     Returns a new dataframe with roasting orders added
@@ -281,74 +280,67 @@ def get_order_relationships_final() -> pd.DataFrame():
     return df_orders_final
     
 
+# Get input coffees used for roasting orders identified
+def get_roaster_input() -> pd.DataFrame():
+    """
+    Returns the input of green coffee used for roasting orders identified as used in a finished product.
+    """
+    # Get dataframe, list and concatenated string for sql with relevant order numbers
+    df_orders = get_order_relationships()
+    orders_list = df_orders['Relateret ordre'].unique().tolist()
+    orders_sql = string_to_sql(orders_list)
+    # Query Probat for records
+    query = f""" SELECT	[RECORDING_DATE] AS [Dato] ,[DESTINATION] AS [Rister]
+                ,[PRODUCTION_ORDER_ID] AS [Produktionsordre id]
+                ,[BATCH_ID] AS [Batch id],[SOURCE] AS [Kilde silo]
+                ,[S_CONTRACT_NO] AS [Kontraktnummer],[S_DELIVERY_NAME] AS [Modtagelse]
+                ,[S_TYPE_CELL] AS [Sortnummer i silo] ,[WEIGHT] / 1000.0 AS [Kilo]
+                FROM [dbo].[PRO_EXP_ORDER_LOAD_R]
+                WHERE [ORDER_NAME] IN ({orders_sql}) """
+    df = pd.read_sql(query, con_probat)
+    return df
+
+
+# Get input coffees used for roasting orders identified
+def get_roaster_output() -> pd.DataFrame():
+    """
+    Returns the output of roasting orders identified as used in a finished product.
+    """
+    # Get dataframe, list and concatenated string for sql with relevant order numbers
+    df_orders = get_order_relationships()
+    orders_list = df_orders['Relateret ordre'].unique().tolist()
+    orders_sql = string_to_sql(orders_list)
+    # Query Probat for records
+    query = f""" WITH G AS (
+                SELECT LG.[S_PRODUCT_ID] ,MAX(ULG.[DEST_NAME]) AS [Silo]
+                FROM [dbo].[PRO_EXP_ORDER_LOAD_G] AS LG
+                INNER JOIN [dbo].[PRO_EXP_ORDER_UNLOAD_G] AS ULG
+                	ON LG.[BATCH_ID] = ULG.[BATCH_ID]
+                GROUP BY LG.[S_PRODUCT_ID] )
+                , ULR AS (
+                SELECT ULR.[PRODUCTION_ORDER_ID] AS [Produktionsordre id]
+                ,ULR.[BATCH_ID] AS [Batch id] ,ULR.[ORDER_NAME] AS [Ordrenummer]
+               	,ULR.[S_CUSTOMER_CODE] AS [Receptnummer] ,ULR.[DEST_NAME] AS [Silo]
+               	,ULR.[S_PRODUCT_ID] ,SUM(ULR.[WEIGHT]) / 1000.0 AS [Kilo]
+                FROM [dbo].[PRO_EXP_ORDER_UNLOAD_R] AS ULR
+                GROUP BY ULR.[PRODUCTION_ORDER_ID] ,ULR.[BATCH_ID]
+                ,ULR.[ORDER_NAME], ULR.[S_CUSTOMER_CODE]
+                ,ULR.[DEST_NAME] ,ULR.[S_PRODUCT_ID] )
+                SELECT ULR.[Produktionsordre id] ,ULR.[Batch id]
+                ,ULR.[Ordrenummer] ,ULR.[Receptnummer] ,ULR.[Kilo]
+                ,COALESCE(G.[Silo],ULR.[Silo]) AS [Silo]
+                FROM ULR
+                LEFT JOIN G
+                	ON ULR.[S_PRODUCT_ID] = G.[S_PRODUCT_ID]
+                WHERE ULR.[Ordrenummer] IN ({orders_sql}) """
+    df = pd.read_sql(query, con_probat)
+    return df
 
 
 # =============================================================================
-# 
-# df_temp = pd.concat([get_nav_order_related(), get_probat_orders_related()])
 # temp_list = get_list_of_missing_values(get_finished_goods_grades()
 #                                         ,'Ordrenummer'
-#                                         ,df_temp
+#                                         ,get_order_relationships()
 #                                         ,'Ordre')
 # print(temp_list)
-# 
 # =============================================================================
-
-
-
-df_temp = get_order_relationships_final()
-
-
-
-temp_list = get_list_of_missing_values(get_finished_goods_grades()
-                                        ,'Ordrenummer'
-                                        ,get_order_relationships_final()
-                                        ,'Ordre')
-print(temp_list)
-
-
-
-# WIP below
-
-
-
-
-
-
-
-def get_probat_orders_direct(order_no):
-    query_probat_orders = f""" SELECT DISTINCT
-                        	PG.[ORDER_NAME] AS [Ordre]
-                        	,LG.[S_ORDER_NAME] AS [Relateret ordre]
-                        FROM [dbo].[PRO_EXP_ORDER_SEND_PG] AS PG
-                        INNER JOIN [dbo].[PRO_EXP_ORDER_LOAD_G] AS LG
-                        	ON PG.[S_ORDER_NAME] = LG.[ORDER_NAME]
-                        WHERE PG.[ORDER_NAME] IN ({order_no})
-                        	AND PG.[S_ORDER_NAME] NOT IN ('Retour Ground','REWORK ROAST' )
-                        
-                        UNION
-                        
-                        SELECT DISTINCT
-                        	PB.[ORDER_NAME]
-                        	,ULR.[ORDER_NAME]
-                        FROM [dbo].[PRO_EXP_ORDER_SEND_PB] AS PB
-                        INNER JOIN [dbo].PRO_EXP_ORDER_UNLOAD_R AS ULR
-                        	ON PB.[S_ORDER_NAME] = ULR.[ORDER_NAME]
-                        WHERE PB.[ORDER_NAME] IN( {order_no}) """
-    return pd.read_sql(query_probat_orders, con_probat)
-
-
-    
-
-
-df_order_relations_total = pd.DataFrame()
-
-
-               
-                     
-                     
-                     
-                     
-                     
-                     
-    
