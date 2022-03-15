@@ -78,28 +78,6 @@ def get_list_of_missing_values(df_total:pd.DataFrame(), total_column_name:str, d
     missing_values = list(set(total_values_list) - set(compare_values_list))
     return missing_values
 
-# Get info from assembly and production orders in Navision
-query_order_info = """ SELECT PAH.[No_] AS [Ordrenummer],PAH.[Item No_] AS [Varenummer]
-                        FROM [dbo].[BKI foods a_s$Posted Assembly Header] AS PAH
-                        INNER JOIN [dbo].[BKI foods a_s$Item] AS I
-                            ON PAH.[Item No_] = I.[No_]
-                        WHERE I.[Item Category Code] = 'FÆR KAFFE'
-                            AND I.[Display Item] = 1
-                        UNION ALL
-                        SELECT PO.[No_],PO.[Source No_]
-                        FROM [dbo].[BKI foods a_s$Production Order] AS PO
-                        INNER JOIN [dbo].[BKI foods a_s$Item] AS I
-                            ON PO.[Source No_] = I.[No_]
-                        WHERE PO.[Status] IN (2,3,4) AND I.[Item Category Code] <> 'RÅKAFFE' """
-df_order_info = pd.read_sql(query_order_info, con_nav)
-def get_nav_order_info(order_no: str) -> str:
-    """
-    Input order number and get the item number returned based on production and assembly orders in Navision.
-    Query is executed upon import of script, and not each time this function is called.
-    """
-    df_temp = df_order_info[df_order_info['Ordrenummer'] == order_no]
-    if len(df_temp) > 0:
-        return df_temp['Varenummer'].iloc[0]
 
 
 # Get information from coffee contracts from Navision
