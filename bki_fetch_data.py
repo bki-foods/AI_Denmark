@@ -12,7 +12,7 @@ con_ds = si.con_ds
 con_nav = si.con_nav
 con_probat = si.con_probat
 
-    
+
 # Convert list into string for SQL IN operator
 def string_to_sql(list_with_values: list) -> str:
     """
@@ -38,7 +38,7 @@ def get_list_of_missing_values(df_total:pd.DataFrame(), total_column_name:str, d
     """
     Compares the values in two specified columns from two specified dataframes and returns a list of any values present in first dataframe,
     that does not exist in the second.
-    
+
     Parameters
     ----------
     df_total : pd.DataFrame()
@@ -157,7 +157,7 @@ def get_finished_goods_grades() -> pd.DataFrame():
                 AND S.[Varenummer] NOT LIKE '1090%' """
     df = pd.read_sql(query, con_ds)
     return df
-    
+
 # Get all related orders from Navision for orders which have been given a grade
 def get_nav_order_related() -> pd.DataFrame():
     """
@@ -166,14 +166,14 @@ def get_nav_order_related() -> pd.DataFrame():
     # Get dataframe with orders given grades, convert til liste and string used for SQL query.
     df_orders = get_finished_goods_grades()
     graded_orders_list = df_orders['Ordrenummer'].unique().tolist()
-    po_sql_string = string_to_sql(graded_orders_list)    
+    po_sql_string = string_to_sql(graded_orders_list)
     # Get related orders from Navision
-    query_nav_order_related = f""" SELECT [Prod_ Order No_] AS [Ordre] 
+    query_nav_order_related = f""" SELECT [Prod_ Order No_] AS [Ordre]
                                    ,[Reserved Prod_ Order No_] AS [Relateret ordre]
                                    FROM [dbo].[BKI foods a_s$Reserved Prod_ Order No_]
                                    WHERE [Prod_ Order No_] IN ({po_sql_string})
                                    AND [Invalid] = 0 """
-    df_nav_order_related = pd.read_sql(query_nav_order_related, con_nav)  
+    df_nav_order_related = pd.read_sql(query_nav_order_related, con_nav)
     return df_nav_order_related
 
 # Get all related orders from Probat for remainder of orders, which have no reservations in Navision
@@ -189,7 +189,7 @@ def get_probat_orders_related() -> pd.DataFrame():
                                                   ,'Ordre')
     # Convert list to a string valid for SQL query
     sql_search_string = string_to_sql(orders_to_search)
-    
+
     query = f""" WITH CTE_ORDERS AS (
                 SELECT [ORDER_NAME] AS [Ordre] ,[S_ORDER_NAME] AS [Relateret ordre]
                 FROM [dbo].[PRO_EXP_ORDER_SEND_PG]
@@ -238,7 +238,7 @@ def get_order_relationships() -> pd.DataFrame():
     df_orders_final[['Ordre','Relateret ordre']] = df_with_roasting_orders[['Ordre','S_ORDER_NAME']]
     df_orders_final.dropna(inplace=True)
     return df_orders_final
-    
+
 
 # Get input coffees used for roasting orders identified
 def get_roaster_input() -> pd.DataFrame():
