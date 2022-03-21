@@ -3,6 +3,7 @@
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QRadioButton, QLabel, QGroupBox, QPushButton, QCheckBox, QVBoxLayout
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
 import sys
 
 
@@ -11,31 +12,34 @@ class blend_recommendation(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setGeometry(200, 100, 900, 600)
-        self.setWindowTitle("Halli hallo")
+        self.setWindowTitle("Simuleringsmodel til receptsammensætning ud fra smagsprofil og differentialer")
         self.initUI()
 
         
     def initUI(self):
-        # self.radiobutton_style = {font: 30pt Helvetica MS;} QRadioButton::indicator { width: 30px; height: 30px;}
         
-        self.label = QLabel(self)
-        self.label.setText("Sikke en flot label")
-        self.label.move(50, 50)
+        self.header = self.create_label("Receptforslag ud fra smagsprofil", 35)
+        self.header.move(0, 0)
+
         
-        
-        self.b1 = QPushButton(self)
-        self.b1.setText("Tryk på mig!!")
-        self.b1.move(200, 200)
-        self.b1.clicked.connect(self.clicked)
-        
+              
         
         
 
         
         # Arabica/robusta/mix
         self.blend_composition()
+        
+        self.fairtrade()
 
 
+
+# =============================================================================
+#         self.b1 = QPushButton(self)
+#         self.b1.setText("Tryk på mig!!")
+#         self.b1.move(200, 200)
+#         self.b1.clicked.connect(self.clicked)
+# =============================================================================
 
 
 # =============================================================================
@@ -43,23 +47,54 @@ class blend_recommendation(QMainWindow):
 #         self.chk_organic.setCheckState(Qt.PartiallyChecked)
 #         self.chk_organic.move(300, 300)
 # =============================================================================
+
+    def create_label(self, text:str, size:int):
+        """
+        Returns a QLabel with a given input text and size - sizeadjusted.
+        """
+        self.label = QLabel(self)
+        self.label.setText(text)
+        self.label.setFont(QFont(None, pointSize=size))
+        self.label.adjustSize()
+        
+        return self.label
+
+    def create_radio_button(self, text):
+        
+        self.radio = QRadioButton(self)
+        self.radio.setText(text)
+        
+        return self.radio
+
         
     def blend_composition(self):
-        self.radioButton1 = QRadioButton(self)
-        self.radioButton1.setText("Blandet")
-        self.radioButton1.move(500,400)
-        self.radioButton2 = QRadioButton(self)
-        self.radioButton2.setText("Ren arabica")
-        self.radioButton2.move(500,450)
-        self.radioButton3 = QRadioButton(self)
-        self.radioButton3.setText("Ren robusta")
-        self.radioButton3.move(500,500)
-        self.radioButton1.setChecked(True)
+        self.blend_composition_label = self.create_label('Sammensætning', 15)
+        self.blend_composition_label.move(500, 380)       
         
+        self.radio_blandet = self.create_radio_button("Blandet")
+        self.radio_blandet.move(500,400)
+        self.radio_arabica = self.create_radio_button("Ren arabica")
+        self.radio_arabica.move(500,420)
+        self.radio_robusta = self.create_radio_button("Ren robusta")
+        self.radio_robusta.move(500,440)
+        self.radio_blandet.setChecked(True)
         
+    def fairtrade(self):
+
+        self.fairtrade_label = self.create_label('Fairtrade', 15)
+        self.fairtrade_label.move(400, 350)
+        
+        self.chk_fairtrade = QCheckBox(self)
+        self.chk_fairtrade.setText("Inkluder")
+        self.chk_fairtrade.move(400,370)
+        self.chk_fairtrade.setChecked(True)
+
+
+
     def clicked(self):
         self.label.setText("You pressed the button")
         self.update()
+
         
     def update(self):
         self.label.adjustSize()
