@@ -49,11 +49,8 @@ def get_ds_blend_request() -> pd.DataFrame():
     # If script has not been terminated, return dataframe with data
     return df
 
-get_ds_blend_request()
-
-
 def get_spot_available_amounts() -> pd.DataFrame():
-    """ Returns a dataframe with all available coffee from SPOT. """
+    """Returns a dataframe with all available coffee from SPOT."""
     query = """ SELECT PL.[Document No_] AS [Kontraktnummer],PL.[Location Code] AS [Lokation]
                     ,PL.[Outstanding Quantity] AS [Beholdning]
             FROM [dbo].[BKI foods a_s$Purchase Line] AS PL
@@ -77,7 +74,7 @@ def get_spot_available_amounts() -> pd.DataFrame():
     return df
 
 def get_havn_available_amounts() -> pd.DataFrame():
-    """ Returns a dataframe with all available coffee from AARHUSHAVN & EKSLAGER2. """
+    """Returns a dataframe with all available coffee from AARHUSHAVN & EKSLAGER2."""
     query = """ SELECT ILE.[Coffee Batch No_] AS [Kontraktnummer]
                 ,ILE.[Location Code] AS [Lokation] ,SUM(ILE.[Remaining Quantity]) AS [Qty]
             FROM [dbo].[BKI foods a_s$Item Ledger Entry] AS ILE
@@ -90,7 +87,7 @@ def get_havn_available_amounts() -> pd.DataFrame():
     return df
 
 def get_udland_available_amounts() -> pd.DataFrame():
-    """ Returns a dataframe with all available coffee from Udland. """
+    """ Returns a dataframe with all available coffee from Udland."""
     query = """ SELECT PL.[Document No_] AS [Kontraktnummer],PL.[Location Code] AS [Lokation]
                     ,PL.[Outstanding Quantity] AS [Beholdning]
             FROM [dbo].[BKI foods a_s$Purchase Line] AS PL
@@ -105,7 +102,7 @@ def get_udland_available_amounts() -> pd.DataFrame():
     return df
 
 def get_afloat_available_amounts() -> pd.DataFrame():
-    """ Returns a dataframe with all available coffee from AARHUSHAVN & EKSLAGER2. """
+    """Returns a dataframe with all available coffee from AARHUSHAVN & EKSLAGER2."""
     query = """ SELECT ILE.[Coffee Batch No_] AS [Kontraktnummer]
                 ,ILE.[Location Code] AS [Lokation] ,SUM(ILE.[Remaining Quantity]) AS [Qty]
             FROM [dbo].[BKI foods a_s$Item Ledger Entry] AS ILE
@@ -118,7 +115,23 @@ def get_afloat_available_amounts() -> pd.DataFrame():
     return df
 
 
+def get_silos_available_amounts() -> pd.DataFrame():
+    """Returns a dataframe with all available coffee from 000 and 200-silos from Probat."""
+    query = """ SELECT  'SILOER' AS [Lokation] ,[Kontrakt] ,[Modtagelse] ,SUM([Kilo]) AS [Qty]
+            FROM [dbo].[Newest total inventory]
+            WHERE [Placering] = '0000' OR [Placering] LIKE '2__'
+            GROUP BY [Kontrakt],[Modtagelse] """
+    df = pd.read_sql(query, bsi.con_probat)
+    return df
 
+def get_warehouse_available_amounts() -> pd.DataFrame():
+    """Returns a dataframe with all available coffee from Warehouse from Probat."""
+    query = """ SELECT  'WAREHOUSE' AS [Lokation] ,[Kontrakt] ,[Modtagelse] ,SUM([Kilo]) AS [Qty]
+            FROM [dbo].[Newest total inventory]
+            WHERE [Placering] = 'Warehouse'
+            GROUP BY [Kontrakt],[Modtagelse] """
+    df = pd.read_sql(query, bsi.con_probat)
+    return df
 
 
 
