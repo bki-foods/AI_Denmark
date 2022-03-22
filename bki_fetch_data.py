@@ -1,18 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import pandas as pd
 import bki_server_information as bsi
 import bki_functions as bf
-import pandas as pd
-
-
-# =============================================================================
-# Variables for query connections
-# =============================================================================
-con_ds = bsi.con_ds
-con_nav = bsi.con_nav
-con_probat = bsi.con_probat
-
 
 
 # Compare two dataframes with specified columns and see if dataframe 2 is missing any values compared to dataframe 1
@@ -68,7 +59,7 @@ def get_coffee_contracts() -> pd.DataFrame():
             LEFT JOIN [dbo].[BKI foods a_s$Country_Region] AS CR
             	ON PH.[Pay-to Country_Region Code] = CR.[Code]
             WHERE PH.[Kontrakt] = 1 """
-    df = pd.read_sql(query, con_nav)
+    df = pd.read_sql(query, bsi.con_nav)
     return df
 
 # Get masterdata for recipes (green coffee blends)
@@ -82,7 +73,7 @@ def get_recipe_information() -> pd.DataFrame():
             INNER JOIN [dbo].[BKI foods a_s$Item] AS I
             	ON PRI.[CUSTOMER_CODE] = I.[No_]
             WHERE PRI.[CUSTOMER_CODE] LIKE '1040%' """
-    df = pd.read_sql(query, con_nav)
+    df = pd.read_sql(query, bsi.con_nav)
     return df
 
 
@@ -111,7 +102,7 @@ def get_gc_grades() -> pd.DataFrame():
             WHERE S.[Kontraktnummer] IS NOT NULL
             	AND COALESCE(S.[Smag_Syre],S.[Smag_Krop],S.[Smag_Aroma],S.[Smag_Eftersmag],S.[Smag_Robusta]) IS NOT NULL
             AND S.[Status] = 1 """
-    df = pd.read_sql(query, con_ds)
+    df = pd.read_sql(query, bsi.con_ds)
     return df
 
 # Get all records for grades given to finished goods
@@ -137,7 +128,7 @@ def get_finished_goods_grades() -> pd.DataFrame():
             	AND S.[Referencetype] = 2
             	AND S.[Referencenummer] IS NOT NULL
                 AND S.[Varenummer] NOT LIKE '1090%' """
-    df = pd.read_sql(query, con_ds)
+    df = pd.read_sql(query, bsi.con_ds)
     return df
 
 # Get all related orders from Navision for orders which have been given a grade
@@ -155,7 +146,7 @@ def get_nav_order_related() -> pd.DataFrame():
                                    FROM [dbo].[BKI foods a_s$Reserved Prod_ Order No_]
                                    WHERE [Prod_ Order No_] IN ({po_sql_string})
                                    AND [Invalid] = 0 """
-    df_nav_order_related = pd.read_sql(query_nav_order_related, con_nav)
+    df_nav_order_related = pd.read_sql(query_nav_order_related, bsi.con_nav)
     return df_nav_order_related
 
 # Get all related orders from Probat for remainder of orders, which have no reservations in Navision
@@ -186,7 +177,7 @@ def get_probat_orders_related() -> pd.DataFrame():
                 SELECT *
                 FROM CTE_ORDERS
                 WHERE [Ordre] IN ({sql_search_string}) """
-    df = pd.read_sql(query, con_probat)
+    df = pd.read_sql(query, bsi.con_probat)
     return df
 
 # Get roasting orders from grinding orders from Probat
@@ -205,7 +196,7 @@ def get_order_relationships() -> pd.DataFrame():
                 FROM [dbo].[PRO_EXP_ORDER_UNLOAD_R]
                 WHERE [ORDER_NAME] IS NOT NULL
                 GROUP BY [ORDER_NAME],[ORDER_NAME] """
-    df_orders = pd.read_sql(query, con_probat)
+    df_orders = pd.read_sql(query, bsi.con_probat)
     # Get a dataframe with Probat and Navision relationships unioned.
     df_orders_total = pd.concat([get_nav_order_related(), get_probat_orders_related()])
     # Left join roasting orders on df_orders_total
@@ -239,7 +230,7 @@ def get_roaster_input() -> pd.DataFrame():
                 ,[S_TYPE_CELL] AS [Sortnummer i silo] ,[WEIGHT] / 1000.0 AS [Kilo]
                 FROM [dbo].[PRO_EXP_ORDER_LOAD_R]
                 WHERE [ORDER_NAME] IN ({orders_sql}) """
-    df = pd.read_sql(query, con_probat)
+    df = pd.read_sql(query, bsi.con_probat)
     return df
 
 
@@ -275,7 +266,7 @@ def get_roaster_output() -> pd.DataFrame():
                 LEFT JOIN G
                 	ON ULR.[S_PRODUCT_ID] = G.[S_PRODUCT_ID]
                 WHERE ULR.[Ordrenummer] IN ({orders_sql}) """
-    df = pd.read_sql(query, con_probat)
+    df = pd.read_sql(query, bsi.con_probat)
     return df
 
 
