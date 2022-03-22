@@ -23,3 +23,9 @@ con_nav = pyodbc.connect(f'DRIVER=SQL Server;SERVER={server_nav};DATABASE={db_na
 server_probat = '192.168.125.161'
 db_probat = 'BKI_IMP_EXP'
 con_probat = pyodbc.connect(f'DRIVER=SQL Server;SERVER={server_probat};DATABASE={db_probat};uid=bki_read;pwd=Probat2016')
+
+# =============================================================================
+# Filepaths
+# =============================================================================
+filepath_report = r''
+
