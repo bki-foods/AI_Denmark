@@ -1,37 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import Server_information as si
+import bki_server_information as bsi
+import bki_functions as bf
 import pandas as pd
 
 
 # =============================================================================
 # Variables for query connections
 # =============================================================================
-con_ds = si.con_ds
-con_nav = si.con_nav
-con_probat = si.con_probat
+con_ds = bsi.con_ds
+con_nav = bsi.con_nav
+con_probat = bsi.con_probat
 
 
-# Convert list into string for SQL IN operator
-def string_to_sql(list_with_values: list) -> str:
-    """
-    Convert list of values into a single string which can be used for SQL queries IN clauses.
-    Input ['a','b','c'] --> Output 'a','b','c'
-    \n Parameters
-    ----------
-    list_with_values : list
-        List containing all values which need to be joined into one string
-
-    \n Returns
-    -------
-    String with comma separated values.
-    Returned values are encased in '' when returned.
-    """
-    if len(list_with_values) == 0:
-        return ''
-    else:
-        return "'{}'".format("','".join(list_with_values))
 
 # Compare two dataframes with specified columns and see if dataframe 2 is missing any values compared to dataframe 1
 def get_list_of_missing_values(df_total:pd.DataFrame(), total_column_name:str, df_compare:pd.DataFrame(), compare_column_name:str) -> list:
@@ -166,7 +148,7 @@ def get_nav_order_related() -> pd.DataFrame():
     # Get dataframe with orders given grades, convert til liste and string used for SQL query.
     df_orders = get_finished_goods_grades()
     graded_orders_list = df_orders['Ordrenummer'].unique().tolist()
-    po_sql_string = string_to_sql(graded_orders_list)
+    po_sql_string = bf.string_to_sql(graded_orders_list)
     # Get related orders from Navision
     query_nav_order_related = f""" SELECT [Prod_ Order No_] AS [Ordre]
                                    ,[Reserved Prod_ Order No_] AS [Relateret ordre]
@@ -188,7 +170,7 @@ def get_probat_orders_related() -> pd.DataFrame():
                                                   ,get_nav_order_related()
                                                   ,'Ordre')
     # Convert list to a string valid for SQL query
-    sql_search_string = string_to_sql(orders_to_search)
+    sql_search_string = bf.string_to_sql(orders_to_search)
 
     query = f""" WITH CTE_ORDERS AS (
                 SELECT [ORDER_NAME] AS [Ordre] ,[S_ORDER_NAME] AS [Relateret ordre]
@@ -248,7 +230,7 @@ def get_roaster_input() -> pd.DataFrame():
     # Get dataframe, list and concatenated string for sql with relevant order numbers
     df_orders = get_order_relationships()
     orders_list = df_orders['Relateret ordre'].unique().tolist()
-    orders_sql = string_to_sql(orders_list)
+    orders_sql = bf.string_to_sql(orders_list)
     # Query Probat for records
     query = f""" SELECT	[RECORDING_DATE] AS [Dato] ,[DESTINATION] AS [Rister]
                 ,[PRODUCTION_ORDER_ID] AS [Produktionsordre id]
@@ -269,7 +251,7 @@ def get_roaster_output() -> pd.DataFrame():
     # Get dataframe, list and concatenated string for sql with relevant order numbers
     df_orders = get_order_relationships()
     orders_list = df_orders['Relateret ordre'].unique().tolist()
-    orders_sql = string_to_sql(orders_list)
+    orders_sql = bf.string_to_sql(orders_list)
     # Query Probat for records
     query = f""" WITH G AS (
                 SELECT LG.[S_PRODUCT_ID] ,MAX(ULG.[DEST_NAME]) AS [Silo]
