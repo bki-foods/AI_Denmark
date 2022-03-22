@@ -1,3 +1,5 @@
 
 Server_information.py
 tutorial_ui.py
+*.stats
+*.pyc
