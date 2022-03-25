@@ -49,7 +49,7 @@ def get_ds_blend_request() -> pd.DataFrame():
     # If script has not been terminated, return dataframe with data
     return df
 
-def get_spot_available_amounts() -> pd.DataFrame():
+def get_spot_available_quantities() -> pd.DataFrame():
     """Returns a dataframe with all available coffee from SPOT."""
     query = """ SELECT PL.[Document No_] AS [Kontraktnummer],PL.[Location Code] AS [Lokation]
                     ,PL.[Outstanding Quantity] AS [Beholdning]
@@ -73,20 +73,20 @@ def get_spot_available_amounts() -> pd.DataFrame():
     df = pd.read_sql(query, bsi.con_nav)
     return df
 
-def get_havn_available_amounts() -> pd.DataFrame():
+def get_havn_available_quantities() -> pd.DataFrame():
     """Returns a dataframe with all available coffee from AARHUSHAVN & EKSLAGER2."""
     query = """ SELECT ILE.[Coffee Batch No_] AS [Kontraktnummer]
-                ,ILE.[Location Code] AS [Lokation] ,SUM(ILE.[Remaining Quantity]) AS [Qty]
+                ,'AARHUSHAVN' AS [Lokation] ,SUM(ILE.[Remaining Quantity]) AS [Beholdning]
             FROM [dbo].[BKI foods a_s$Item Ledger Entry] AS ILE
             INNER JOIN [dbo].[BKI foods a_s$Item] AS I
             	ON ILE.[Item No_]= I.[No_]
             WHERE ILE.[Remaining Quantity] > 0 AND ILE.[Location Code] IN ('AARHUSHAVN','EKSLAGER2')
             	AND I.[Item Category Code] = 'RÅKAFFE'
-            GROUP BY ILE.[Coffee Batch No_] ,ILE.[Location Code] """
+            GROUP BY ILE.[Coffee Batch No_] """
     df = pd.read_sql(query, bsi.con_nav)
     return df
 
-def get_udland_available_amounts() -> pd.DataFrame():
+def get_udland_available_quantities() -> pd.DataFrame():
     """ Returns a dataframe with all available coffee from Udland."""
     query = """ SELECT PL.[Document No_] AS [Kontraktnummer],PL.[Location Code] AS [Lokation]
                     ,PL.[Outstanding Quantity] AS [Beholdning]
@@ -101,10 +101,10 @@ def get_udland_available_amounts() -> pd.DataFrame():
     df = pd.read_sql(query, bsi.con_nav)
     return df
 
-def get_afloat_available_amounts() -> pd.DataFrame():
+def get_afloat_available_quantities() -> pd.DataFrame():
     """Returns a dataframe with all available coffee from AARHUSHAVN & EKSLAGER2."""
     query = """ SELECT ILE.[Coffee Batch No_] AS [Kontraktnummer]
-                ,ILE.[Location Code] AS [Lokation] ,SUM(ILE.[Remaining Quantity]) AS [Qty]
+                ,ILE.[Location Code] AS [Lokation] ,SUM(ILE.[Remaining Quantity]) AS [Beholdning]
             FROM [dbo].[BKI foods a_s$Item Ledger Entry] AS ILE
             INNER JOIN [dbo].[BKI foods a_s$Item] AS I
             	ON ILE.[Item No_]= I.[No_]
@@ -115,23 +115,91 @@ def get_afloat_available_amounts() -> pd.DataFrame():
     return df
 
 
-def get_silos_available_amounts() -> pd.DataFrame():
+def get_silos_available_quantities() -> pd.DataFrame():
     """Returns a dataframe with all available coffee from 000 and 200-silos from Probat."""
-    query = """ SELECT  'SILOER' AS [Lokation] ,[Kontrakt] ,[Modtagelse] ,SUM([Kilo]) AS [Qty]
+    query = """ SELECT  'SILOER' AS [Lokation] ,[Kontrakt] AS [Kontraktnummer]
+            ,[Modtagelse] ,SUM([Kilo]) AS [Beholdning]
             FROM [dbo].[Newest total inventory]
             WHERE [Placering] = '0000' OR [Placering] LIKE '2__'
             GROUP BY [Kontrakt],[Modtagelse] """
     df = pd.read_sql(query, bsi.con_probat)
     return df
 
-def get_warehouse_available_amounts() -> pd.DataFrame():
+def get_warehouse_available_quantities() -> pd.DataFrame():
     """Returns a dataframe with all available coffee from Warehouse from Probat."""
-    query = """ SELECT  'WAREHOUSE' AS [Lokation] ,[Kontrakt] ,[Modtagelse] ,SUM([Kilo]) AS [Qty]
+    query = """ SELECT  'WAREHOUSE' AS [Lokation] ,[Kontrakt] AS [Kontraktnummer]
+            ,[Modtagelse] ,SUM([Kilo]) AS [Beholdning]
             FROM [dbo].[Newest total inventory]
             WHERE [Placering] = 'Warehouse'
             GROUP BY [Kontrakt],[Modtagelse] """
     df = pd.read_sql(query, bsi.con_probat)
     return df
+
+
+def get_all_available_quantities(request_dataframe) -> pd.DataFrame():
+    """Returns a dataframe with all available coffee from all locations that have been
+        selected when the request was made.
+        Variable 'request_dataframe' must contain all columns from the request log.
+        If input dataframe contains multiple rows, only the first row is used."""
+    # Set variables for which locations are to be included.
+    dict_locations = {
+        'SILOER': request_dataframe['Lager_siloer'].iloc[0],
+        'WAREHOUSE': request_dataframe['Lager_warehouse'].iloc[0],
+        'AARHUSHAVN': request_dataframe['Lager_havn'].iloc[0],
+        'SPOT': request_dataframe['Lager_spot'].iloc[0],
+        'AFLOAT': request_dataframe['Lager_afloat'].iloc[0],
+        'UDLAND': request_dataframe['Lager_udland'].iloc[0]
+        }
+    # Remove dictionary keys where value == 0
+    for key,value in list(dict_locations.items()):
+        if value == 0:
+           del dict_locations[key]
+
+    print(dict_locations)
+
+    min_quantity = request_dataframe['Minimum_lager'].iloc[0]
+    
+    df = pd.DataFrame(columns=['Lokation','Kontrakt','Modtagelse','Beholdning'])
+    
+    df = pd.concat([
+        get_spot_available_quantities(),
+        get_havn_available_quantities(),
+        get_udland_available_quantities(),
+        get_afloat_available_quantities(),
+        get_silos_available_quantities(),
+        get_warehouse_available_quantities()
+        ])
+
+    
+    print(df)
+    # Lager_siloer | Lager_warehouse | Lager_havn | Lager_spot | Lager_afloat | Lager_udland
+
+
+
+
+
+get_all_available_quantities(get_ds_blend_request())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
