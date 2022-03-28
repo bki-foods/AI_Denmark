@@ -141,6 +141,15 @@ def get_all_available_quantities(request_dataframe) -> pd.DataFrame():
         selected when the request was made.
         Variable 'request_dataframe' must contain all columns from the request log.
         If input dataframe contains multiple rows, only the first row is used."""
+    # Create dataframe with all available coffees
+    df = pd.concat([
+        get_spot_available_quantities(),
+        get_havn_available_quantities(),
+        get_udland_available_quantities(),
+        get_afloat_available_quantities(),
+        get_silos_available_quantities(),
+        get_warehouse_available_quantities()
+        ])
     # Set variables for which locations are to be included.
     dict_locations = {
         'SILOER': request_dataframe['Lager_siloer'].iloc[0],
@@ -150,29 +159,14 @@ def get_all_available_quantities(request_dataframe) -> pd.DataFrame():
         'AFLOAT': request_dataframe['Lager_afloat'].iloc[0],
         'UDLAND': request_dataframe['Lager_udland'].iloc[0]
         }
-    # Remove dictionary keys where value == 0
-    for key,value in list(dict_locations.items()):
-        if value == 0:
-           del dict_locations[key]
-
-    print(dict_locations)
-
+    # Minimum available amount of coffee for an item to be included
     min_quantity = request_dataframe['Minimum_lager'].iloc[0]
+    # Map dictionary to dataframe and filter dataframe on locations and min. available amounts
+    df['Lokation_filter'] = df['Lokation'].map(dict_locations)
+    df = df.loc[(df['Lokation_filter'] == 1) & (df['Beholdning'] >= min_quantity)]
     
-    df = pd.DataFrame(columns=['Lokation','Kontrakt','Modtagelse','Beholdning'])
     
-    df = pd.concat([
-        get_spot_available_quantities(),
-        get_havn_available_quantities(),
-        get_udland_available_quantities(),
-        get_afloat_available_quantities(),
-        get_silos_available_quantities(),
-        get_warehouse_available_quantities()
-        ])
 
-    
-    print(df)
-    # Lager_siloer | Lager_warehouse | Lager_havn | Lager_spot | Lager_afloat | Lager_udland
 
 
 
