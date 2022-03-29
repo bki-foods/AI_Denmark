@@ -32,7 +32,6 @@ dict_certifications = {
     'Rainforest': df_request['Inkluder_rainforest'].iloc[0],
     'Konventionel': df_request['Inkluder_konventionel'].iloc[0],
     }
-
 # Get all available quantities available for use in production
 df_available_coffee = bf.get_all_available_quantities(
     dict_locations,
@@ -44,6 +43,7 @@ df_available_coffee = bf.get_all_available_quantities(
 #TODO: Get data from TI script with suggestions for recipe combinations
 
 
+
 # =============================================================================
 # Create Excel workbook with relevant sheets
 # =============================================================================
@@ -51,6 +51,8 @@ wb_name = f'Receptforslag_{request_id}.xlsx'
 path_file_wb = bsi.filepath_report + r'\\' + wb_name
 excel_writer = pd.ExcelWriter(path_file_wb, engine='xlsxwriter')
 # Input data for request
+df_request = df_request.transpose().reset_index()
+df_request.columns = ['Oplysning','Værdi']
 bf.insert_dataframe_into_excel(
     excel_writer,
     df_request,
@@ -58,15 +60,51 @@ bf.insert_dataframe_into_excel(
 # Suggested blends
 #TODO
 # Green coffee input
-# bf.insert_dataframe_into_excel(
-#     excel_writer,
-#     df_available_coffee,
-#     'Kaffekontrakter input')
+bf.insert_dataframe_into_excel(
+    excel_writer,
+    df_available_coffee,
+    'Kaffekontrakter input')
 # Similar/identical blends
 
 # Description/documentation
 
 
 excel_writer.save()
+
+
+
+#TODO update datastore with filename and -path
+
+
+#TODO Create record in cof.email_log
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Exit script
 bf.get_exit_check(0)
