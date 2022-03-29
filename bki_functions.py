@@ -35,6 +35,38 @@ def get_exit_check(value: int):
     else:
         pass
 
+# Write into dbo.log
+def log_insert(event: str, note: str):
+    """Inserts a record into BKI_Datastore dbo.log with event and note."""
+    dict_log = {'Note': note
+                ,'Event': event}
+    pd.DataFrame(data=dict_log, index=[0]).to_sql('Log', con=bsi.engine_ds, schema='dbo', if_exists='append', index=False)
+
+# Write dataframe into Excel sheet
+def insert_dataframe_into_excel (engine, dataframe, sheetname: str, include_index: bool = False): #TODO
+    """
+    Inserts a dataframe into an Excel sheet
+    \n Parameters
+    ----------
+    engine : Excel engine
+    dataframe : Pandas dataframe
+        Dataframe containing data supposed to be inserted into the Excel workbook.
+    sheetname : str (max length 31 characters)
+        Name of sheet created where dataframe will be inserted into.
+    include_index : bool
+        True if index is supposed to be included in insert into Excel, False if not.
+    """
+    dataframe.to_excel(engine, sheet_name=sheetname, index=include_index)
+
+# Update BKI_Datastore with input ID with a new status
+def update_request_log(request_id: int, status: int): #TODO
+    bsi.cursor_ds.execute(f"""UPDATE [cof].[Receptforslag_log]
+                          SET [Status] = {status}
+                          WHERE [Id] = {request_id} """)
+    bsi.cursor_ds.commit()
+
+
+
 # Compare two dataframes with specified columns and see if dataframe 2 is missing any values compared to dataframe 1
 def get_list_of_missing_values(df_total:pd.DataFrame(), total_column_name:str, df_compare:pd.DataFrame(), compare_column_name:str) -> list:
     """
@@ -79,15 +111,22 @@ def get_coffee_contracts() -> pd.DataFrame():
                 WHEN PH.[Washed Coffee] = 0 AND PH.[No_] >= '21-037' THEN 'Uvasket'
         		ELSE NULL END AS [Metode]
         	,PL.[No_] AS [Sort] ,I.[Mærkningsordning] ,PH.[Differentials] AS [Differentiale]
+            ,I.[Description] AS [Varenavn]
+			,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%FAIR%' THEN 1 ELSE 0 END AS [Fairtrade]
+			,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%ØKO%' THEN 1 ELSE 0 END AS [Økologi]
+			,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%RFA%' THEN 1 ELSE 0 END AS [Rainforest]
+			,CASE WHEN UPPER(I.[Mærkningsordning]) = '' THEN 1 ELSE 0 END AS [Konventionel]
+			,CASE WHEN UPPER(I.[Description]) LIKE '%ROBUSTA%' THEN 'R' ELSE 'A' END AS [Kaffetype]
             FROM [dbo].[BKI foods a_s$Purchase Header] AS PH
             INNER JOIN [dbo].[BKI foods a_s$Purchase Line] AS PL
             	ON PH.[No_] = PL.[Document No_]
             	AND [PL].[Line No_] = 10000
+				AND PL.[Type] = 2
             LEFT JOIN [dbo].[BKI foods a_s$Item] AS I
             	ON PL.[No_] = I.[No_]
             LEFT JOIN [dbo].[BKI foods a_s$Country_Region] AS CR
             	ON PH.[Pay-to Country_Region Code] = CR.[Code]
-            WHERE PH.[Kontrakt] = 1 """
+            WHERE PH.[Kontrakt] = 1"""
     df = pd.read_sql(query, bsi.con_nav)
     return df
 
@@ -119,9 +158,6 @@ def get_gc_grades() -> pd.DataFrame():
         	,ST.[Beskrivelse] AS [Smagningstype] ,S.[Smag_Syre] AS [Syre]
         	,S.[Smag_Krop] AS [Krop] ,S.[Smag_Aroma] AS [Aroma]
         	,S.[Smag_Eftersmag] AS [Eftersmag] ,S.[Smag_Robusta] AS [Robusta]
-        	,CASE WHEN S.[Status] = 1 THEN 'Godkendt' 
-                WHEN S.[Status] = 0 THEN 'Afvist' ELSE 'Ej smagt' END AS [Status]
-        	,S.[Bemærkning]
             FROM [cof].[Smageskema] AS S
             LEFT JOIN [cof].[Smagningstype] AS ST
             	ON S.[Smagningstype] = ST.[Id]
@@ -132,6 +168,7 @@ def get_gc_grades() -> pd.DataFrame():
             	AND COALESCE(S.[Smag_Syre],S.[Smag_Krop],S.[Smag_Aroma],S.[Smag_Eftersmag],S.[Smag_Robusta]) IS NOT NULL
             AND S.[Status] = 1 """
     df = pd.read_sql(query, bsi.con_ds)
+    df['Kontraktnummer'] = df['Kontraktnummer'].str.upper() # Upper case to prevent join issues
     return df
 
 # Get all records for grades given to finished goods
@@ -260,6 +297,7 @@ def get_roaster_input() -> pd.DataFrame():
                 FROM [dbo].[PRO_EXP_ORDER_LOAD_R]
                 WHERE [ORDER_NAME] IN ({orders_sql}) """
     df = pd.read_sql(query, bsi.con_probat)
+    df['Kontraktnummer'] = df['Kontraktnummer'].str.upper() # Upper case to prevent join issues
     return df
 
 
@@ -419,12 +457,43 @@ def get_warehouse_available_quantities() -> pd.DataFrame():
     df = pd.read_sql(query, bsi.con_probat)
     return df
 
+def get_target_cupping_profiles() -> pd.DataFrame():
+    """Returns a dataframe containing all target cupping profiles from Navision.
+       Table id 27 = Item, 39 = purchase header."""
+    query = """ WITH CP AS (
 
-def get_all_available_quantities(request_dataframe) -> pd.DataFrame():
+             SELECT [Table ID],[No_] ,[0] AS [Syre],[1] AS [Aroma]
+             	,[2] AS [Krop],[3] AS [Eftersmag],[4] AS [Robusta]
+             FROM (
+                 SELECT [Table ID] ,[No_] ,[Type] ,[Value]
+             FROM [dbo].[BKI foods a_s$Coffee Taste Profile]) AS TBL
+             PIVOT (  
+                 MAX([Value])  
+                 FOR [Type] IN ([0],[1],[2],[3],[4])  
+             ) AS PVT
+            )
+            SELECT [No_] AS [Kontraktnummer] ,[Syre] ,[Aroma] ,[Krop] ,[Eftersmag] ,[Robusta]
+            FROM CP WHERE [Table ID] = 39
+            UNION
+            SELECT PL.[Document No_] ,CP.[Syre] ,CP.[Aroma] ,CP.[Krop] ,CP.[Eftersmag] ,CP.[Robusta]
+            FROM [dbo].[BKI foods a_s$Purchase Line] AS PL
+            INNER JOIN [dbo].[BKI foods a_s$Purchase Header] AS PH
+            	ON PL.[Document No_] = PH.[No_]
+            INNER JOIN CP
+            	ON PL.[No_] = CP.[No_]
+            	AND CP.[Table ID] = 27
+            WHERE PH.[Kontrakt] = 1 AND PL.[Type] = 2 """
+    df = pd.read_sql(query, bsi.con_nav)
+    return df
+
+def get_all_available_quantities(location_filter: dict, min_quantity: float, certifications: dict) -> pd.DataFrame():
+#TODO! Rewrite docstring
     """Returns a dataframe with all available coffee from all locations that have been
         selected when the request was made.
         Variable 'request_dataframe' must contain all columns from the request log.
-        If input dataframe contains multiple rows, only the first row is used."""
+        If input dataframe contains multiple rows, only the first row is used. \n
+        Cupping profiles are found in the following order: 
+        Mean grades per kontrakt/modtagelse --> Mean grades per Kontrakt --> Target values from Navision."""
     # Create dataframe with all available coffees
     df = pd.concat([
         get_spot_available_quantities(),
@@ -434,38 +503,86 @@ def get_all_available_quantities(request_dataframe) -> pd.DataFrame():
         get_silos_available_quantities(),
         get_warehouse_available_quantities()
         ])
-    # Set variables for which locations are to be included.
-    dict_locations = {
-        'SILOER': request_dataframe['Lager_siloer'].iloc[0],
-        'WAREHOUSE': request_dataframe['Lager_warehouse'].iloc[0],
-        'AARHUSHAVN': request_dataframe['Lager_havn'].iloc[0],
-        'SPOT': request_dataframe['Lager_spot'].iloc[0],
-        'AFLOAT': request_dataframe['Lager_afloat'].iloc[0],
-        'UDLAND': request_dataframe['Lager_udland'].iloc[0]
-        }
-    # Minimum available amount of coffee for an item to be included
-    min_quantity = request_dataframe['Minimum_lager'].iloc[0]
+    df['Modtagelse'].fillna(value='', inplace=True)
+    df['Kontraktnummer'] = df['Kontraktnummer'].str.upper() # Upper case to prevent join issues
     # Map dictionary to dataframe and filter dataframe on locations and min. available amounts
-    df['Lokation_filter'] = df['Lokation'].map(dict_locations)
+    df['Lokation_filter'] = df['Lokation'].map(location_filter)
     df = df.loc[(df['Lokation_filter'] == 1) & (df['Beholdning'] >= min_quantity)]
     
+    # Read green coffee grades into dataframe and calculate mean values 
+    df_grades = get_gc_grades()
+    df_grades['Modtagelse'].fillna(value='', inplace=True)
+    # Calculate mean value grouped by kontrakt and modtagelse, merge with original dataframe
+    df_grades_del = df_grades.groupby(['Kontraktnummer','Modtagelse'], dropna=False).agg(
+        {'Syre': 'mean',
+        'Krop': 'mean',
+        'Aroma': 'mean',
+        'Eftersmag': 'mean',
+        'Robusta': 'mean'
+        }).reset_index()   
+    df = pd.merge(
+        left= df,
+        right= df_grades_del,
+        how= 'left',
+        on= ['Kontraktnummer','Modtagelse']
+        )
+    # Calculate mean value grouped by kontrakt, merge with original dataframe
+    df_grades_con = df_grades.groupby(['Kontraktnummer'], dropna=False).agg(
+        {'Syre': 'mean',
+        'Krop': 'mean',
+        'Aroma': 'mean',
+        'Eftersmag': 'mean',
+        'Robusta': 'mean'
+        }).reset_index()   
+    df = pd.merge(
+        left= df,
+        right= df_grades_con,
+        how= 'left',
+        on= 'Kontraktnummer'
+        )
+    # Get target values from Navision and add to dataframe
+    df_grades_targets = get_target_cupping_profiles()
+    df = pd.merge(
+        left = df,
+        right = df_grades_targets,
+        how = 'left',
+        on= 'Kontraktnummer')
+    # Get available grades into a single column
+    df['Syre'] = df['Syre_x'].combine_first(df['Syre_y']).combine_first(df['Syre'])
+    df['Aroma'] = df['Aroma_x'].combine_first(df['Aroma_y']).combine_first(df['Aroma'])
+    df['Krop'] = df['Krop_x'].combine_first(df['Krop_y']).combine_first(df['Krop'])
+    df['Eftersmag'] = df['Eftersmag_x'].combine_first(df['Eftersmag_y']).combine_first(df['Eftersmag'])
+    df['Robusta'] = df['Robusta_x'].combine_first(df['Robusta_y']).combine_first(df['Robusta'])
+    # Add information regarding certifications of each contract
+    df_contract_info = get_coffee_contracts()
+    df = pd.merge(
+        left = df,
+        right = df_contract_info,
+        how = 'left',
+        on= 'Kontraktnummer')
+    # Filter dataframe down to relevant rows for certifications
+    if certifications['Fairtrade'] == 0:
+        df = df.loc[(df['Fairtrade'] == 0)]
+    if certifications['Økologi'] == 0:
+        df = df.loc[(df['Økologi'] == 0)]
+    if certifications['Rainforest'] == 0:
+        df = df.loc[(df['Rainforest'] == 0)]
+    if certifications['Konventionel'] == 0:
+        df = df.loc[(df['Konventionel'] == 0)]
+    # Remove or add Arabica/Robusta if chosen
+    if certifications['Sammensætning'] == 'Ren Arabica':
+        df = df.loc[(df['Kaffetype'] == 'A')]
+    if certifications['Sammensætning'] == 'Ren Robusta':
+        df = df.loc[(df['Kaffetype'] == 'R')]
+    # Remove any unnecesary columns from dataframe
+    df.drop(['Syre_x','Aroma_x','Krop_x','Eftersmag_x','Robusta_x',
+             'Syre_y','Aroma_y','Krop_y','Eftersmag_y','Robusta_y',
+             'Lokation_filter', 'Leverandør', 'Høst', 'Høstår', 'Metode',
+             'Fairtrade', 'Økologi', 'Rainforest', 'Konventionel', 'Kaffetype']
+            ,inplace=True, axis=1)
+
+    return df
     
-
-
-
-
-
-
-get_all_available_quantities(get_ds_blend_request())
-
-
-
-
-
-
-
-
-
 
 
 
