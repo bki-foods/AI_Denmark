@@ -28,4 +28,3 @@ con_probat = pyodbc.connect(f'DRIVER=SQL Server;SERVER={server_probat};DATABASE=
 # Filepaths
 # =============================================================================
 filepath_report = r'\\appsrv07\Python filer\Receptforslag'
-
