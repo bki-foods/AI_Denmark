@@ -43,7 +43,7 @@ def log_insert(event: str, note: str):
     pd.DataFrame(data=dict_log, index=[0]).to_sql('Log', con=bsi.engine_ds, schema='dbo', if_exists='append', index=False)
 
 # Write dataframe into Excel sheet
-def insert_dataframe_into_excel (engine, dataframe, sheetname: str, include_index: bool = False): #TODO
+def insert_dataframe_into_excel (engine, dataframe, sheetname: str, include_index: bool = False):
     """
     Inserts a dataframe into an Excel sheet
     \n Parameters
@@ -59,7 +59,19 @@ def insert_dataframe_into_excel (engine, dataframe, sheetname: str, include_inde
     dataframe.to_excel(engine, sheet_name=sheetname, index=include_index)
 
 # Update BKI_Datastore with input ID with a new status
-def update_request_log(request_id: int, status: int, filename: str = '', filepath: str = ''): #TODO
+def update_request_log(request_id: int, status: int, filename: str = '', filepath: str = ''):
+    """
+    Updates request log with input status, and possibly filname and -path.
+    Parameters
+    ----------
+    request_id : int
+        Request id that is to be updated.
+    status : int
+        Statuscode for the record
+    filename : str, optional
+        Name of the workbook generated. The default is ''.
+    filepath : str, optional
+        The filepath for the workbook generated. The default is ''."""
     bsi.cursor_ds.execute(f"""UPDATE [cof].[Receptforslag_log]
                           SET [Status] = {status}, [Filsti] = '{filepath}'
                           , [Filnavn] = '{filename}'
@@ -487,13 +499,24 @@ def get_target_cupping_profiles() -> pd.DataFrame():
     return df
 
 def get_all_available_quantities(location_filter: dict, min_quantity: float, certifications: dict) -> pd.DataFrame():
-#TODO! Rewrite docstring
-    """Returns a dataframe with all available coffee from all locations that have been
-        selected when the request was made.
-        Variable 'request_dataframe' must contain all columns from the request log.
-        If input dataframe contains multiple rows, only the first row is used. \n
-        Cupping profiles are found in the following order: 
-        Mean grades per kontrakt/modtagelse --> Mean grades per Kontrakt --> Target values from Navision."""
+    """
+    Returns a dataframe with all available coffee contracts which adhere to criteria regarding
+    locations, min. quantity as well as any certifications.
+    Parameters
+    ----------
+    location_filter : dict
+        A dictionary with keys == SPOT,AARHUSHAVN,UDLAND,AFLOAT,SILOER,WAREHOUSE. 0/1 whether to include or not
+    min_quantity : float
+        The minimum quantity that must be available for a contract to be considered for use.
+    certifications : dict
+        A dctionary with keys == Fairtrade,Konventionel,Rainforest,Sammensætning,Økologi 0/1 whether to include or not
+    Returns
+    -------
+    df : pd.DataFrame()
+        A dataframe with all available coffee contracts.
+        Cupping profiles are found in the following order:
+        Mean grades per kontrakt/modtagelse --> Mean grades per Kontrakt --> Target values from Navision.
+    """
     # Create dataframe with all available coffees
     df = pd.concat([
         get_spot_available_quantities(),
@@ -508,8 +531,8 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
     # Map dictionary to dataframe and filter dataframe on locations and min. available amounts
     df['Lokation_filter'] = df['Lokation'].map(location_filter)
     df = df.loc[(df['Lokation_filter'] == 1) & (df['Beholdning'] >= min_quantity)]
-    
-    # Read green coffee grades into dataframe and calculate mean values 
+
+    # Read green coffee grades into dataframe and calculate mean values
     df_grades = get_gc_grades()
     df_grades['Modtagelse'].fillna(value='', inplace=True)
     # Calculate mean value grouped by kontrakt and modtagelse, merge with original dataframe
@@ -519,7 +542,7 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
         'Aroma': 'mean',
         'Eftersmag': 'mean',
         'Robusta': 'mean'
-        }).reset_index()   
+        }).reset_index()
     df = pd.merge(
         left= df,
         right= df_grades_del,
@@ -533,7 +556,7 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
         'Aroma': 'mean',
         'Eftersmag': 'mean',
         'Robusta': 'mean'
-        }).reset_index()   
+        }).reset_index()
     df = pd.merge(
         left= df,
         right= df_grades_con,
@@ -582,13 +605,11 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
             ,inplace=True, axis=1)
 
     return df
-    
 
 # Get identical recipes
 def get_identical_recipes(syre: int, aroma: int, krop: int, eftersmag: int) -> pd.DataFrame():
     """Returns a pandas dataframe with identical recipes when compared to input parameters.
     Also returns similar recipes where ABS(diff) for each parameter is allowed to be 1."""
-    #TODO docstring
     query = f"""WITH CP AS (
             SELECT [Table ID] ,[No_] ,[0] AS [Syre] ,[1] AS [Aroma]
             	,[2] AS [Krop] ,[3] AS [Eftersmag],[4] AS [Robusta]
@@ -632,17 +653,3 @@ def get_identical_recipes(syre: int, aroma: int, krop: int, eftersmag: int) -> p
                       ABS(CP.[Eftersmag] - {eftersmag} ) + ABS(CP.[Krop] - {krop} ) ) > 0"""
     df = pd.read_sql(query, bsi.con_nav)
     return df
-
-
-
-
-
-
-
-
-
-
-
-
-
-
