@@ -584,8 +584,54 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
     return df
     
 
+# Get identical recipes
+def get_identical_recipes(syre: int, aroma: int, krop: int, eftersmag: int) -> pd.DataFrame():
+    """Returns a pandas dataframe with identical recipes when compared to input parameters.
+    Also returns similar recipes where ABS(diff) for each parameter is allowed to be 1."""
+    #TODO docstring
+    query = f"""WITH CP AS (
+            SELECT [Table ID] ,[No_] ,[0] AS [Syre] ,[1] AS [Aroma]
+            	,[2] AS [Krop] ,[3] AS [Eftersmag],[4] AS [Robusta]
+            FROM (
+                SELECT [Table ID] ,[No_] ,[Type] ,[Value]
+            FROM [dbo].[BKI foods a_s$Coffee Taste Profile]) AS TBL
+            PIVOT (  
+                MAX([Value])  
+                FOR [Type] IN ([0],[1],[2],[3],[4])  
+            ) AS PVT
+            WHERE [Table ID] = 27
+            )
 
-
+            SELECT I.[No_] AS [Receptnummer] ,I.[Description] AS [Beskrivelse]
+            	,I.[Mærkningsordning] ,I.[Standard Cost] AS [Kostpris]
+            	,PRI.[COLOR] AS [Farve] ,CP.[Syre] ,CP.[Aroma] ,CP.[Krop]
+            	,CP.[Eftersmag] ,CP.[Robusta] ,'Identisk' AS [Sammenligning]
+            FROM CP
+            INNER JOIN [dbo].[BKI foods a_s$PROBAT Item] AS PRI
+            	ON CP.[No_] = PRI.[CUSTOMER_CODE]
+            INNER JOIN [dbo].[BKI foods a_s$Item] AS I
+            	ON CP.[No_] = I.[No_]
+            WHERE PRI.[ZONE] = 2 AND CP.[Aroma] = {aroma} AND CP.[Syre] = {syre}
+            	AND CP.[Eftersmag] = {eftersmag} AND CP.[Krop] = {krop}
+            UNION ALL
+            SELECT I.[No_] AS [Receptnummer] ,I.[Description] AS [Beskrivelse]
+            	,I.[Mærkningsordning] ,I.[Standard Cost] AS [Kostpris]
+            	,PRI.[COLOR] AS [Farve] ,CP.[Syre] ,CP.[Aroma] ,CP.[Krop]
+            	,CP.[Eftersmag] ,CP.[Robusta],'Lignende'
+            FROM CP
+            INNER JOIN [dbo].[BKI foods a_s$PROBAT Item] AS PRI
+            	ON CP.[No_] = PRI.[CUSTOMER_CODE]
+            INNER JOIN [dbo].[BKI foods a_s$Item] AS I
+            	ON CP.[No_] = I.[No_]
+            WHERE PRI.[ZONE] = 2
+            	AND ABS(CP.[Aroma] - {aroma} ) < 0
+            	AND ABS(CP.[Syre] - {syre} ) < 0
+            	AND ABS(CP.[Eftersmag] - {eftersmag} ) < 0
+            	AND ABS(CP.[Krop] - {krop} ) < 0
+            	AND ( ABS(CP.[Aroma] - {aroma} ) + ABS(CP.[Syre] - {syre} ) + 
+                      ABS(CP.[Eftersmag] - {eftersmag} ) + ABS(CP.[Krop] - {krop} ) ) > 0"""
+    df = pd.read_sql(query, bsi.con_nav)
+    return df
 
 
 
