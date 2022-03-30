@@ -6,37 +6,41 @@ import bki_functions as bf
 import bki_server_information as bsi
 
 
-
-# Read request from BKI_Datastore, update request that it is initiated and write into log
+# Read request from BKI_Datastore
 df_request = bf.get_ds_blend_request()
+# Create necessary request variables for later use
 request_id = df_request['Id'].iloc[0]
 request_recipient = df_request['Bruger_email'].iloc[0]
 request_syre = df_request['Syre'].iloc[0]
 request_aroma = df_request['Aroma'].iloc[0]
 request_krop = df_request['Krop'].iloc[0]
 request_eftersmag = df_request['Eftersmag'].iloc[0]
-#TODO activate two lines below
-# bf.update_request_log(request_id ,1)
-# bf.log_insert('bki_flow_management.py','Request id ' + str(request_id) + ' initiated.')
-# Add locations to dictionary
+request_model_including_robusta = df_request['Model_inkluder_robusta'].iloc[0]
+
+# Update request that it is initiated and write into log
+bf.update_request_log(request_id ,1)
+bf.log_insert('bki_flow_management.py','Request id ' + str(request_id) + ' initiated.')
+
+# Add locations to dictionary for later
 dict_locations = {
     'SILOER': df_request['Lager_siloer'].iloc[0],
     'WAREHOUSE': df_request['Lager_warehouse'].iloc[0],
     'AARHUSHAVN': df_request['Lager_havn'].iloc[0],
     'SPOT': df_request['Lager_spot'].iloc[0],
     'AFLOAT': df_request['Lager_afloat'].iloc[0],
-    'UDLAND': df_request['Lager_udland'].iloc[0]
-    }
+    'UDLAND': df_request['Lager_udland'].iloc[0]}
+
 # Minimum available amount of coffee for an item to be included
 min_quantity = df_request['Minimum_lager'].iloc[0]
+
 # Different types of certifications
 dict_certifications = {
     'Sammensætning': df_request['Sammensætning'].iloc[0],
     'Fairtrade': df_request['Inkluder_fairtrade'].iloc[0],
     'Økologi': df_request['Inkluder_økologi'].iloc[0],
     'Rainforest': df_request['Inkluder_rainforest'].iloc[0],
-    'Konventionel': df_request['Inkluder_konventionel'].iloc[0],
-    }
+    'Konventionel': df_request['Inkluder_konventionel'].iloc[0]}
+
 # Get all available quantities available for use in production
 df_available_coffee = bf.get_all_available_quantities(
     dict_locations,
@@ -85,14 +89,11 @@ bf.insert_dataframe_into_excel(
 excel_writer.save()
 excel_writer.close()
 
+# Update source table with status, filename and -path
+bf.update_request_log(request_id ,2 ,wb_name, bsi.filepath_report)
+bf.log_insert('bki_flow_management.py','Request id ' + str(request_id) + ' completed.')
 
-
-
-# Update source table with filename and -path
-# bf.update_request_log(request_id ,2 ,wb_name, bsi.filepath_report) #TODO uncomment
-# # bf.log_insert('bki_flow_management.py','Request id ' + str(request_id) + ' completed.')
-
-#TODO Create record in cof.email_log
+# Create record in cof.email_log
 dict_email = {
     'Id_Org': request_id,
     'Email_type': 5,
@@ -104,9 +105,3 @@ dict_email = {
     'Id_org_kildenummer': 9}
 bf.insert_into_email_log(dict_email)
 bf.log_insert('bki_flow_management.py','Notification email for request id ' + str(request_id) + ' created.')
-
-
-
-
-
-
