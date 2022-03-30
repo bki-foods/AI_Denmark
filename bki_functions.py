@@ -59,13 +59,24 @@ def insert_dataframe_into_excel (engine, dataframe, sheetname: str, include_inde
     dataframe.to_excel(engine, sheet_name=sheetname, index=include_index)
 
 # Update BKI_Datastore with input ID with a new status
-def update_request_log(request_id: int, status: int): #TODO
+def update_request_log(request_id: int, status: int, filename: str = '', filepath: str = ''): #TODO
     bsi.cursor_ds.execute(f"""UPDATE [cof].[Receptforslag_log]
-                          SET [Status] = {status}
+                          SET [Status] = {status}, [Filsti] = '{filepath}'
+                          , [Filnavn] = '{filename}'
                           WHERE [Id] = {request_id} """)
     bsi.cursor_ds.commit()
 
-
+# Write into section log
+def insert_into_email_log(dictionary: dict):
+    """
+    Writes into BKI_Datastore cof.Receptforslag_log. \n
+    Parameters
+    ----------
+    dictionary : dict
+        Dictionary containing keys matching field names in table in the database.
+    """
+    df = pd.DataFrame(data= dictionary ,index= [0])
+    df.to_sql('Email_log', con=bsi.engine_ds, schema='cof', if_exists='append', index=False)
 
 # Compare two dataframes with specified columns and see if dataframe 2 is missing any values compared to dataframe 1
 def get_list_of_missing_values(df_total:pd.DataFrame(), total_column_name:str, df_compare:pd.DataFrame(), compare_column_name:str) -> list:
@@ -344,17 +355,6 @@ def get_roaster_output() -> pd.DataFrame():
 #                                         ,'Ordre')
 # print(temp_list)
 # =============================================================================
-
-
-
-
-
-
-
-
-
-
-
 
 
 # Read top 1 record of blend request log
