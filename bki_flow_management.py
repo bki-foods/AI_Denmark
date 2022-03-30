@@ -10,6 +10,7 @@ import bki_server_information as bsi
 # Read request from BKI_Datastore, update request that it is initiated and write into log
 df_request = bf.get_ds_blend_request()
 request_id = df_request['Id'].iloc[0]
+request_recipient = df_request['Bruger_email'].iloc[0]
 request_syre = df_request['Syre'].iloc[0]
 request_aroma = df_request['Aroma'].iloc[0]
 request_krop = df_request['Krop'].iloc[0]
@@ -55,14 +56,6 @@ wb_name = f'Receptforslag_{request_id}.xlsx'
 path_file_wb = bsi.filepath_report + r'\\' + wb_name
 excel_writer = pd.ExcelWriter(path_file_wb, engine='xlsxwriter')
 
-# with excel_writer:
-# Input data for request
-df_request = df_request.transpose().reset_index()
-df_request.columns = ['Oplysning','Værdi']
-bf.insert_dataframe_into_excel(
-    excel_writer,
-    df_request,
-    'Data for anmodning')
 # Suggested blends
 #TODO
 # Green coffee input
@@ -75,20 +68,42 @@ bf.insert_dataframe_into_excel(
     excel_writer,
     bf.get_identical_recipes(request_syre, request_aroma, request_krop, request_eftersmag),
     'Identiske, lign. recepter')
-# Description/documentation
-
-
+# Input data for request, replace 0/1 with text values before transposing
+dict_include_exclude = {0: 'Ekskluder', 1: 'Inkluder'}
+columns_include_exclude = ['Inkluder_konventionel','Inkluder_fairtrade','Inkluder_økologi',
+                           'Inkluder_rainforest','Lager_siloer','Lager_warehouse','Lager_havn',
+                           'Lager_spot','Lager_afloat','Lager_udland']
+for col in columns_include_exclude:
+    df_request[col] = df_request[col].map(dict_include_exclude)
+df_request = df_request.transpose().reset_index()
+df_request.columns = ['Oplysning','Værdi']
+bf.insert_dataframe_into_excel(
+    excel_writer,
+    df_request,
+    'Data for anmodning')
+# Save and close workbook
 excel_writer.save()
 excel_writer.close()
 
 
 
-#TODO update datastore with filename and -path
 
+# Update source table with filename and -path
+# bf.update_request_log(request_id ,2 ,wb_name, bsi.filepath_report) #TODO uncomment
+# # bf.log_insert('bki_flow_management.py','Request id ' + str(request_id) + ' completed.')
 
 #TODO Create record in cof.email_log
-
-
+dict_email = {
+    'Id_Org': request_id,
+    'Email_type': 5,
+    'Email_til': request_recipient,
+    'Email_emne': f'Excel fil med receptforslag klar: {wb_name}',
+    'Email_tekst': f'''Excel fil med receptforslag er klar.
+                        Filnavn: {wb_name}
+                        Filsti: {bsi.filepath_report} \n\n\n''',
+    'Id_org_kildenummer': 9}
+bf.insert_into_email_log(dict_email)
+bf.log_insert('bki_flow_management.py','Notification email for request id ' + str(request_id) + ' created.')
 
 
 
