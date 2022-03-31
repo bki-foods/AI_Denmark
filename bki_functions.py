@@ -645,10 +645,10 @@ def get_identical_recipes(syre: int, aroma: int, krop: int, eftersmag: int) -> p
             INNER JOIN [dbo].[BKI foods a_s$Item] AS I
             	ON CP.[No_] = I.[No_]
             WHERE PRI.[ZONE] = 2
-            	AND ABS(CP.[Aroma] - {aroma} ) < 0
-            	AND ABS(CP.[Syre] - {syre} ) < 0
-            	AND ABS(CP.[Eftersmag] - {eftersmag} ) < 0
-            	AND ABS(CP.[Krop] - {krop} ) < 0
+            	AND ABS(CP.[Aroma] - {aroma} ) <= 1
+            	AND ABS(CP.[Syre] - {syre} ) <= 1
+            	AND ABS(CP.[Eftersmag] - {eftersmag} ) <= 1
+            	AND ABS(CP.[Krop] - {krop} ) <= 1
             	AND ( ABS(CP.[Aroma] - {aroma} ) + ABS(CP.[Syre] - {syre} ) + 
                       ABS(CP.[Eftersmag] - {eftersmag} ) + ABS(CP.[Krop] - {krop} ) ) > 0"""
     df = pd.read_sql(query, bsi.con_nav)
