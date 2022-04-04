@@ -622,9 +622,35 @@ def get_identical_recipes(syre: int, aroma: int, krop: int, eftersmag: int) -> p
             ) AS PVT
             WHERE [Table ID] = 27
             )
+			,BOM_VERS AS (
+			SELECT
+				[Production BOM No_]
+				,MAX([Version Code]) AS [Version]
+			FROM [dbo].[BKI foods a_s$Production BOM Version]
+			WHERE [Status] = 1
+				AND [Starting Date] < GETDATE()
+			GROUP BY [Production BOM No_]
+			)
+			,TILLÆG AS (
+			SELECT 
+				PBL.[Production BOM No_]
+				,PBL.[Version Code]
+				,SUM(PBL.[Quantity per] * (1 + PBL.[Scrap _] / 100.0) * I.[Unit Cost]) AS [Cost of not coffee]
+			FROM [dbo].[BKI foods a_s$Production BOM Line] AS PBL
+			INNER JOIN [dbo].[BKI foods a_s$Item] AS I
+				ON PBL.[No_] = I.[No_]
+			INNER JOIN BOM_VERS
+				ON PBL.[Production BOM No_] = BOM_VERS.[Production BOM No_]
+				AND PBL.[Version Code] = BOM_VERS.[Version]
+			WHERE I.[Item Category Code] <> 'RÅKAFFE'
+			GROUP BY
+				PBL.[Production BOM No_]
+				,PBL.[Version Code]
+			)
 
             SELECT I.[No_] AS [Receptnummer] ,I.[Description] AS [Beskrivelse]
             	,I.[Mærkningsordning] ,I.[Standard Cost] AS [Kostpris]
+				,I.[Standard Cost] - T.[Cost of not coffee] AS [Kost uden tillæg, gas mm.]
             	,PRI.[COLOR] AS [Farve] ,CP.[Syre] ,CP.[Aroma] ,CP.[Krop]
             	,CP.[Eftersmag] ,CP.[Robusta] ,'Identisk' AS [Sammenligning]
             FROM CP
@@ -632,11 +658,14 @@ def get_identical_recipes(syre: int, aroma: int, krop: int, eftersmag: int) -> p
             	ON CP.[No_] = PRI.[CUSTOMER_CODE]
             INNER JOIN [dbo].[BKI foods a_s$Item] AS I
             	ON CP.[No_] = I.[No_]
+			LEFT JOIN TILLÆG AS T
+				ON I.[Production BOM No_] = T.[Production BOM No_]
             WHERE PRI.[ZONE] = 2 AND CP.[Aroma] = {aroma} AND CP.[Syre] = {syre}
             	AND CP.[Eftersmag] = {eftersmag} AND CP.[Krop] = {krop}
             UNION ALL
             SELECT I.[No_] AS [Receptnummer] ,I.[Description] AS [Beskrivelse]
             	,I.[Mærkningsordning] ,I.[Standard Cost] AS [Kostpris]
+				,I.[Standard Cost] - T.[Cost of not coffee] AS [Kost uden tillæg, gas mm.]
             	,PRI.[COLOR] AS [Farve] ,CP.[Syre] ,CP.[Aroma] ,CP.[Krop]
             	,CP.[Eftersmag] ,CP.[Robusta],'Lignende'
             FROM CP
@@ -644,6 +673,8 @@ def get_identical_recipes(syre: int, aroma: int, krop: int, eftersmag: int) -> p
             	ON CP.[No_] = PRI.[CUSTOMER_CODE]
             INNER JOIN [dbo].[BKI foods a_s$Item] AS I
             	ON CP.[No_] = I.[No_]
+			LEFT JOIN TILLÆG AS T
+				ON I.[Production BOM No_] = T.[Production BOM No_]
             WHERE PRI.[ZONE] = 2
             	AND ABS(CP.[Aroma] - {aroma} ) <= 1
             	AND ABS(CP.[Syre] - {syre} ) <= 1
