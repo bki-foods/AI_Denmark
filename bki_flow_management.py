@@ -46,7 +46,10 @@ df_available_coffee = bf.get_all_available_quantities(
     dict_locations
     ,min_quantity
     ,dict_certifications)
-
+column_order_available_coffee = ['Kontraktnummer','Modtagelse','Lokation','Beholdning'
+                                 ,'Syre','Aroma','Krop','Eftersmag','Robusta','Differentiale'
+                                 ,'Sort','Varenavn','Screensize','Oprindelsesland','Mærkningsordning']
+df_available_coffee = df_available_coffee[column_order_available_coffee]
 
 
 #TODO: Get data from TI script with suggestions for recipe combinations
