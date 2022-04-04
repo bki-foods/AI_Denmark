@@ -519,12 +519,12 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
     """
     # Create dataframe with all available coffees
     df = pd.concat([
-        get_spot_available_quantities(),
-        get_havn_available_quantities(),
-        get_udland_available_quantities(),
-        get_afloat_available_quantities(),
-        get_silos_available_quantities(),
-        get_warehouse_available_quantities()
+        get_spot_available_quantities()
+        ,get_havn_available_quantities()
+        ,get_udland_available_quantities()
+        ,get_afloat_available_quantities()
+        ,get_silos_available_quantities()
+        ,get_warehouse_available_quantities()
         ])
     df['Modtagelse'].fillna(value='', inplace=True)
     df['Kontraktnummer'] = df['Kontraktnummer'].str.upper() # Upper case to prevent join issues
@@ -537,39 +537,39 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
     df_grades['Modtagelse'].fillna(value='', inplace=True)
     # Calculate mean value grouped by kontrakt and modtagelse, merge with original dataframe
     df_grades_del = df_grades.groupby(['Kontraktnummer','Modtagelse'], dropna=False).agg(
-        {'Syre': 'mean',
-        'Krop': 'mean',
-        'Aroma': 'mean',
-        'Eftersmag': 'mean',
-        'Robusta': 'mean'
+        {'Syre': 'mean'
+        ,'Krop': 'mean'
+        ,'Aroma': 'mean'
+        ,'Eftersmag': 'mean'
+        ,'Robusta': 'mean'
         }).reset_index()
     df = pd.merge(
-        left= df,
-        right= df_grades_del,
-        how= 'left',
-        on= ['Kontraktnummer','Modtagelse']
+        left= df
+        ,right= df_grades_del
+        ,how= 'left'
+        ,on= ['Kontraktnummer','Modtagelse']
         )
     # Calculate mean value grouped by kontrakt, merge with original dataframe
     df_grades_con = df_grades.groupby(['Kontraktnummer'], dropna=False).agg(
-        {'Syre': 'mean',
-        'Krop': 'mean',
-        'Aroma': 'mean',
-        'Eftersmag': 'mean',
-        'Robusta': 'mean'
+        {'Syre': 'mean'
+        ,'Krop': 'mean'
+        ,'Aroma': 'mean'
+        ,'Eftersmag': 'mean'
+        ,'Robusta': 'mean'
         }).reset_index()
     df = pd.merge(
-        left= df,
-        right= df_grades_con,
-        how= 'left',
-        on= 'Kontraktnummer'
+        left= df
+        ,right= df_grades_con
+        ,how= 'left'
+        ,on= 'Kontraktnummer'
         )
     # Get target values from Navision and add to dataframe
     df_grades_targets = get_target_cupping_profiles()
     df = pd.merge(
-        left = df,
-        right = df_grades_targets,
-        how = 'left',
-        on= 'Kontraktnummer')
+        left = df
+        ,right = df_grades_targets
+        ,how = 'left'
+        ,on= 'Kontraktnummer')
     # Get available grades into a single column
     df['Syre'] = df['Syre_x'].combine_first(df['Syre_y']).combine_first(df['Syre'])
     df['Aroma'] = df['Aroma_x'].combine_first(df['Aroma_y']).combine_first(df['Aroma'])
@@ -579,11 +579,11 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
     # Add information regarding certifications of each contract
     df_contract_info = get_coffee_contracts()
     df = pd.merge(
-        left = df,
-        right = df_contract_info,
-        how = 'left',
-        on= 'Kontraktnummer')
-    # Filter dataframe down to relevant rows for certifications
+        left = df
+        ,right = df_contract_info
+        ,how = 'left'
+        ,on= 'Kontraktnummer')
+    # Filter dataframe down to relevant rows for certifications. If include == False, only then filter
     if certifications['Fairtrade'] == 0:
         df = df.loc[(df['Fairtrade'] == 0)]
     if certifications['Økologi'] == 0:
@@ -598,10 +598,10 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
     if certifications['Sammensætning'] == 'Ren Robusta':
         df = df.loc[(df['Kaffetype'] == 'R')]
     # Remove any unnecesary columns from dataframe
-    df.drop(['Syre_x','Aroma_x','Krop_x','Eftersmag_x','Robusta_x',
-             'Syre_y','Aroma_y','Krop_y','Eftersmag_y','Robusta_y',
-             'Lokation_filter', 'Leverandør', 'Høst', 'Høstår', 'Metode',
-             'Fairtrade', 'Økologi', 'Rainforest', 'Konventionel', 'Kaffetype']
+    df.drop(['Syre_x','Aroma_x','Krop_x','Eftersmag_x','Robusta_x'
+             ,'Syre_y','Aroma_y','Krop_y','Eftersmag_y','Robusta_y'
+             ,'Lokation_filter', 'Leverandør', 'Høst', 'Høstår', 'Metode'
+             ,'Fairtrade', 'Økologi', 'Rainforest', 'Konventionel', 'Kaffetype']
             ,inplace=True, axis=1)
 
     return df
