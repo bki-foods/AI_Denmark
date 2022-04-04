@@ -23,29 +23,29 @@ bf.log_insert('bki_flow_management.py','Request id ' + str(request_id) + ' initi
 
 # Add locations to dictionary for later
 dict_locations = {
-    'SILOER': df_request['Lager_siloer'].iloc[0],
-    'WAREHOUSE': df_request['Lager_warehouse'].iloc[0],
-    'AARHUSHAVN': df_request['Lager_havn'].iloc[0],
-    'SPOT': df_request['Lager_spot'].iloc[0],
-    'AFLOAT': df_request['Lager_afloat'].iloc[0],
-    'UDLAND': df_request['Lager_udland'].iloc[0]}
+    'SILOER': df_request['Lager_siloer'].iloc[0]
+    ,'WAREHOUSE': df_request['Lager_warehouse'].iloc[0]
+    ,'AARHUSHAVN': df_request['Lager_havn'].iloc[0]
+    ,'SPOT': df_request['Lager_spot'].iloc[0]
+    ,'AFLOAT': df_request['Lager_afloat'].iloc[0]
+    ,'UDLAND': df_request['Lager_udland'].iloc[0]}
 
 # Minimum available amount of coffee for an item to be included
 min_quantity = df_request['Minimum_lager'].iloc[0]
 
 # Different types of certifications
 dict_certifications = {
-    'Sammensætning': df_request['Sammensætning'].iloc[0],
-    'Fairtrade': df_request['Inkluder_fairtrade'].iloc[0],
-    'Økologi': df_request['Inkluder_økologi'].iloc[0],
-    'Rainforest': df_request['Inkluder_rainforest'].iloc[0],
-    'Konventionel': df_request['Inkluder_konventionel'].iloc[0]}
+    'Sammensætning': df_request['Sammensætning'].iloc[0]
+    ,'Fairtrade': df_request['Inkluder_fairtrade'].iloc[0]
+    ,'Økologi': df_request['Inkluder_økologi'].iloc[0]
+    ,'Rainforest': df_request['Inkluder_rainforest'].iloc[0]
+    ,'Konventionel': df_request['Inkluder_konventionel'].iloc[0]}
 
 # Get all available quantities available for use in production
 df_available_coffee = bf.get_all_available_quantities(
-    dict_locations,
-    min_quantity,
-    dict_certifications)
+    dict_locations
+    ,min_quantity
+    ,dict_certifications)
 
 
 
@@ -64,27 +64,27 @@ excel_writer = pd.ExcelWriter(path_file_wb, engine='xlsxwriter')
 #TODO
 # Green coffee input
 bf.insert_dataframe_into_excel(
-    excel_writer,
-    df_available_coffee,
-    'Kaffekontrakter input')
+    excel_writer
+    ,df_available_coffee
+    ,'Kaffekontrakter input')
 # Similar/identical blends
 bf.insert_dataframe_into_excel(
-    excel_writer,
-    bf.get_identical_recipes(request_syre, request_aroma, request_krop, request_eftersmag),
-    'Identiske, lign. recepter')
+    excel_writer
+    ,bf.get_identical_recipes(request_syre, request_aroma, request_krop, request_eftersmag)
+    ,'Identiske, lign. recepter')
 # Input data for request, replace 0/1 with text values before transposing
 dict_include_exclude = {0: 'Ekskluder', 1: 'Inkluder'}
-columns_include_exclude = ['Inkluder_konventionel','Inkluder_fairtrade','Inkluder_økologi',
-                           'Inkluder_rainforest','Lager_siloer','Lager_warehouse','Lager_havn',
-                           'Lager_spot','Lager_afloat','Lager_udland']
+columns_include_exclude = ['Inkluder_konventionel','Inkluder_fairtrade','Inkluder_økologi'
+                           ,'Inkluder_rainforest','Lager_siloer','Lager_warehouse','Lager_havn'
+                           ,'Lager_spot','Lager_afloat','Lager_udland']
 for col in columns_include_exclude:
     df_request[col] = df_request[col].map(dict_include_exclude)
 df_request = df_request.transpose().reset_index()
 df_request.columns = ['Oplysning','Værdi']
 bf.insert_dataframe_into_excel(
-    excel_writer,
-    df_request,
-    'Data for anmodning')
+    excel_writer
+    ,df_request
+    ,'Data for anmodning')
 # Save and close workbook
 excel_writer.save()
 excel_writer.close()
@@ -95,13 +95,13 @@ bf.log_insert('bki_flow_management.py','Request id ' + str(request_id) + ' compl
 
 # Create record in cof.email_log
 dict_email = {
-    'Id_Org': request_id,
-    'Email_type': 5,
-    'Email_til': request_recipient,
-    'Email_emne': f'Excel fil med receptforslag klar: {wb_name}',
-    'Email_tekst': f'''Excel fil med receptforslag er klar.
+    'Id_Org': request_id
+    ,'Email_type': 5
+    ,'Email_til': request_recipient
+    ,'Email_emne': f'Excel fil med receptforslag klar: {wb_name}'
+    ,'Email_tekst': f'''Excel fil med receptforslag er klar.
                         Filnavn: {wb_name}
-                        Filsti: {bsi.filepath_report} \n\n\n''',
-    'Id_org_kildenummer': 9}
+                        Filsti: {bsi.filepath_report} \n\n\n'''
+    ,'Id_org_kildenummer': 9}
 bf.insert_into_email_log(dict_email)
 bf.log_insert('bki_flow_management.py','Notification email for request id ' + str(request_id) + ' created.')
