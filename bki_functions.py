@@ -473,7 +473,6 @@ def get_target_cupping_profiles() -> pd.DataFrame():
     """Returns a dataframe containing all target cupping profiles from Navision.
        Table id 27 = Item, 39 = purchase header."""
     query = """ WITH CP AS (
-
              SELECT [Table ID],[No_] ,[0] AS [Syre],[1] AS [Aroma]
              	,[2] AS [Krop],[3] AS [Eftersmag],[4] AS [Robusta]
              FROM (
