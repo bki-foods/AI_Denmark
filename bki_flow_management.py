@@ -90,7 +90,7 @@ bf.insert_dataframe_into_excel(
     ,'Data for anmodning')
 # Save and close workbook
 excel_writer.save()
-# excel_writer.close()
+excel_writer.close()
 
 # Update source table with status, filename and -path
 bf.update_request_log(request_id ,2 ,wb_name, bsi.filepath_report)
