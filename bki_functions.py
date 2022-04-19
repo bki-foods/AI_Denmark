@@ -497,6 +497,67 @@ def get_target_cupping_profiles() -> pd.DataFrame():
     df = pd.read_sql(query, bsi.con_nav)
     return df
 
+def get_available_items(certifications: dict) -> pd.DataFrame():
+    """
+    Returns a dataframe with all available coffee contracts which adhere to criteria regarding certifications.
+    Should not be used together with actual inventory as differentials are not comparable.
+    Parameters
+    ----------
+    certifications : dict
+        A dctionary with keys == Fairtrade,Konventionel,Rainforest,Sammensætning,Økologi 0/1 whether to include or not
+    Returns
+    -------
+    df : pd.DataFrame()
+        A dataframe with all available items (master data).
+        Cupping profiles are the target values from Navision.
+        Items without cupping profiles are excluded.
+    """
+    query = """ WITH CP AS (
+             SELECT [No_] ,[0] AS [Syre],[1] AS [Aroma]
+             	,[2] AS [Krop],[3] AS [Eftersmag],[4] AS [Robusta]
+             FROM (
+                 SELECT [Table ID] ,[No_] ,[Type] ,[Value]
+             FROM [dbo].[BKI foods a_s$Coffee Taste Profile]) AS TBL
+             PIVOT (  
+                 MAX([Value])  
+                 FOR [Type] IN ([0],[1],[2],[3],[4])  
+             ) AS PVT
+			 WHERE PVT.[Table ID] = 27)
+            SELECT I.[No_] AS [Kontraktnummer] ,'' AS [Modtagelse] ,'VARER' AS [Lokation]
+            	,999999 AS [Beholdning] ,CP.[Syre] ,CP.[Aroma] ,CP.[Krop] ,CP.[Eftersmag]
+            	,CP.[Robusta] ,I.[Unit Cost] AS [Differentiale] ,I.[No_] AS [Sort]
+            	,I.[Description] AS [Varenavn] ,NULL AS [Screensize] ,NULL AS [Oprindelsesland]
+            	,I.[Mærkningsordning]
+            	,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%FAIR%' THEN 1 ELSE 0 END AS [Fairtrade]
+            	,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%ØKO%' THEN 1 ELSE 0 END AS [Økologi]
+            	,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%RFA%' THEN 1 ELSE 0 END AS [Rainforest]
+            	,CASE WHEN UPPER(I.[Mærkningsordning]) = '' THEN 1 ELSE 0 END AS [Konventionel]
+            	,CASE WHEN UPPER(I.[Description]) LIKE '%ROBUSTA%' THEN 'R' ELSE 'A' END AS [Kaffetype]
+            FROM [dbo].[BKI foods a_s$Item] AS I
+            INNER JOIN CP ON I.[No_] = CP.[No_]
+            WHERE I.[Inventory Posting Group] = 'KAF1-GRØN' AND I.[Withdrawal Status] <> 2 """
+    df = pd.read_sql(query, bsi.con_nav)
+    # Filter dataframe down to relevant rows for certifications. If include == False, only then filter
+    if certifications['Fairtrade'] == 0:
+        df = df.loc[(df['Fairtrade'] == 0)]
+    if certifications['Økologi'] == 0:
+        df = df.loc[(df['Økologi'] == 0)]
+    if certifications['Rainforest'] == 0:
+        df = df.loc[(df['Rainforest'] == 0)]
+    if certifications['Konventionel'] == 0:
+        df = df.loc[(df['Konventionel'] == 0)]
+    # Remove or add Arabica/Robusta if chosen
+    if certifications['Sammensætning'] == 'Ren Arabica':
+        df = df.loc[(df['Kaffetype'] == 'A')]
+    if certifications['Sammensætning'] == 'Ren Robusta':
+        df = df.loc[(df['Kaffetype'] == 'R')]
+    # Remove any unnecesary columns from dataframe
+    df.drop(
+        ['Fairtrade', 'Økologi', 'Rainforest', 'Konventionel', 'Kaffetype']
+        ,inplace=True
+        ,axis=1)
+    return df
+
 def get_all_available_quantities(location_filter: dict, min_quantity: float, certifications: dict) -> pd.DataFrame():
     """
     Returns a dataframe with all available coffee contracts which adhere to criteria regarding
@@ -602,7 +663,6 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
              ,'Lokation_filter', 'Leverandør', 'Høst', 'Høstår', 'Metode'
              ,'Fairtrade', 'Økologi', 'Rainforest', 'Konventionel', 'Kaffetype']
             ,inplace=True, axis=1)
-
     return df
 
 # Get identical recipes
