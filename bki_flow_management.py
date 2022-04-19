@@ -15,7 +15,6 @@ request_syre = df_request['Syre'].iloc[0]
 request_aroma = df_request['Aroma'].iloc[0]
 request_krop = df_request['Krop'].iloc[0]
 request_eftersmag = df_request['Eftersmag'].iloc[0]
-request_model_including_robusta = df_request['Model_inkluder_robusta'].iloc[0]
 
 # Update request that it is initiated and write into log
 bf.update_request_log(request_id ,1)
@@ -82,6 +81,7 @@ columns_include_exclude = ['Inkluder_konventionel','Inkluder_fairtrade','Inklude
                            ,'Lager_spot','Lager_afloat','Lager_udland']
 for col in columns_include_exclude:
     df_request[col] = df_request[col].map(dict_include_exclude)
+# Transpose 
 df_request = df_request.transpose().reset_index()
 df_request.columns = ['Oplysning','Værdi']
 bf.insert_dataframe_into_excel(
@@ -90,7 +90,7 @@ bf.insert_dataframe_into_excel(
     ,'Data for anmodning')
 # Save and close workbook
 excel_writer.save()
-excel_writer.close()
+# excel_writer.close()
 
 # Update source table with status, filename and -path
 bf.update_request_log(request_id ,2 ,wb_name, bsi.filepath_report)
