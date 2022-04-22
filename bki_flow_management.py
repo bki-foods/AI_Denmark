@@ -2,12 +2,16 @@
 # -*- coding: utf-8 -*-
 
 import pandas as pd
+import numpy as np
+import joblib
 import bki_functions as bf
 import bki_server_information as bsi
+import ti_price_opt as tpo
 
 
 # Read request from BKI_Datastore
 df_request = bf.get_ds_blend_request()
+df_request['Robusta'].fillna(10, inplace=True) # Modellen skal bruge en værdi for robusta parameteren
 # Create necessary request variables for later use
 request_id = df_request['Id'].iloc[0]
 request_recipient = df_request['Bruger_email'].iloc[0]
@@ -17,8 +21,8 @@ request_krop = df_request['Krop'].iloc[0]
 request_eftersmag = df_request['Eftersmag'].iloc[0]
 
 # Update request that it is initiated and write into log
-bf.update_request_log(request_id ,1)
-bf.log_insert('bki_flow_management.py','Request id ' + str(request_id) + ' initiated.')
+# bf.update_request_log(request_id ,1)
+# bf.log_insert('bki_flow_management.py','Request id ' + str(request_id) + ' initiated.')
 
 # Add locations to dictionary for later
 dict_locations = {
@@ -55,10 +59,25 @@ column_order_available_coffee = ['Kontraktnummer','Modtagelse','Lokation','Behol
                                  ,'Syre','Aroma','Krop','Eftersmag','Robusta','Differentiale'
                                  ,'Sort','Varenavn','Screensize','Oprindelsesland','Mærkningsordning']
 df_available_coffee = df_available_coffee[column_order_available_coffee]
+df_available_coffee['Robusta'].fillna(10, inplace=True)
+df_available_coffee.dropna(subset=['Syre','Aroma','Krop','Eftersmag'], inplace=True) # Vi skal have karakterer, ellers dur det ikke
 
 
 #TODO: Get data from TI script with suggestions for recipe combinations
+contracts_list = df_available_coffee['Kontraktnummer'].to_list()
+flavors_list = df_available_coffee[['Syre','Aroma','Krop','Eftersmag','Robusta']].to_numpy()
+differentials_list = df_available_coffee['Differentiale'].to_numpy().reshape(-1, 1)
+target_flavor_list = df_request[['Syre','Aroma','Krop','Eftersmag','Robusta']].to_numpy()[0]
 
+pop, logbook, hof = tpo.ga_cheapest_blend(
+    contracts_list
+    ,flavors_list
+    ,differentials_list
+    ,joblib.load('bki_flavor_predictor_robusta.sav')
+    ,target_flavor_list
+    ,df_request['Farve'].iloc[0])
+
+print(pop, logbook, hof)
 
 
 # =============================================================================
