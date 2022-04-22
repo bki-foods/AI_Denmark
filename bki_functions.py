@@ -3,6 +3,7 @@
 
 import sys
 import pandas as pd
+import numpy as np
 import bki_server_information as bsi
 
 
@@ -299,6 +300,7 @@ def get_order_relationships() -> pd.DataFrame():
     df_orders_final = pd.DataFrame()
     df_orders_final[['Ordre','Relateret ordre']] = df_with_roasting_orders[['Ordre','S_ORDER_NAME']]
     df_orders_final.dropna(inplace=True)
+
     return df_orders_final
 
 
