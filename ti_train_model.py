@@ -33,13 +33,10 @@ y_augmented = np.tile(y_train, (5, 1))
 perm = np.random.permutation(len(X_augmented))
 X_train_ext = X_augmented[perm, :]
 y_train_ext = y_augmented[perm, :]
-print(0)
 # Train model
 regr = MLPRegressor(hidden_layer_sizes=(300, 200, 100, 100), alpha=0.01, activation="tanh", max_iter=2000).fit(X_train_ext, y_train_ext)
-print(1)
 # Save trained model
 joblib.dump(regr, "bki_flavor_predictor_robusta.sav")
-print(2)
 
 
 # Evaluate model
