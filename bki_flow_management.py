@@ -21,8 +21,8 @@ request_krop = df_request['Krop'].iloc[0]
 request_eftersmag = df_request['Eftersmag'].iloc[0]
 
 # Update request that it is initiated and write into log
-# bf.update_request_log(request_id ,1)
-# bf.log_insert('bki_flow_management.py','Request id ' + str(request_id) + ' initiated.')
+bf.update_request_log(request_id ,1)
+bf.log_insert('bki_flow_management.py','Request id ' + str(request_id) + ' initiated.')
 
 # Add locations to dictionary for later
 dict_locations = {
@@ -88,7 +88,9 @@ path_file_wb = bsi.filepath_report + r'\\' + wb_name
 excel_writer = pd.ExcelWriter(path_file_wb, engine='xlsxwriter')
 
 # Suggested blends
-#TODO
+
+# df_suggested_blends = pd.DataFrame (hof, columns = ['Kontrakt_index', 'Proportion'])
+# print(df_suggested_blends)
 # Green coffee input
 bf.insert_dataframe_into_excel(
     excel_writer
