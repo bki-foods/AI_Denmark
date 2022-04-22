@@ -1,50 +1,50 @@
 import math
 
-from bki_opt.coffee_data_connection import CoffeeDataConnection
+import bki_functions as bf
 import pandas as pd
 import numpy as np
 
 
-def get_raw_flavor_data(con: CoffeeDataConnection, robusta=True):
-    """
-    Get the raw flavor data from the database. Used to get training data for the ML model.
-    :param con: A CoffeeDataConnection that is connected to the data we want to use (either database or excel file)
-    :param robusta: Boolean for whether or not to consider robusta flavor.
-    :return raw_grades: All the raw flavor grades from the given database.
-    """
-    if (robusta):
-        raw_grades = con.get_gc_grades() \
-            [["Dato", "Kontraktnummer", "Modtagelse", "Status", "Syre", "Krop", "Aroma", "Eftersmag", "Robusta"]] \
-            .rename(columns={"Dato": "Dato_r",
-                             "Status": "Status_r",
-                             "Syre": "Syre_r",
-                             "Krop": "Krop_r",
-                             "Aroma": "Aroma_r",
-                             "Eftersmag": "Eftersmag_r",
-                             "Robusta": "Robusta_r"})
-        raw_grades["Robusta_r"] = raw_grades["Robusta_r"].fillna(10)
-        raw_grades = raw_grades.dropna(subset=["Kontraktnummer", "Modtagelse", "Dato_r", "Status_r", "Syre_r", "Krop_r",
-                                               "Aroma_r", "Eftersmag_r", "Robusta_r"]) \
-                               .drop_duplicates(subset=["Kontraktnummer"])
+# def get_raw_flavor_data(con: CoffeeDataConnection, robusta=True):
+#     """
+#     Get the raw flavor data from the database. Used to get training data for the ML model.
+#     :param con: A CoffeeDataConnection that is connected to the data we want to use (either database or excel file)
+#     :param robusta: Boolean for whether or not to consider robusta flavor.
+#     :return raw_grades: All the raw flavor grades from the given database.
+#     """
+#     if (robusta):
+#         raw_grades = con.get_gc_grades() \
+#             [["Dato", "Kontraktnummer", "Modtagelse", "Status", "Syre", "Krop", "Aroma", "Eftersmag", "Robusta"]] \
+#             .rename(columns={"Dato": "Dato_r",
+#                              "Status": "Status_r",
+#                              "Syre": "Syre_r",
+#                              "Krop": "Krop_r",
+#                              "Aroma": "Aroma_r",
+#                              "Eftersmag": "Eftersmag_r",
+#                              "Robusta": "Robusta_r"})
+#         raw_grades["Robusta_r"] = raw_grades["Robusta_r"].fillna(10)
+#         raw_grades = raw_grades.dropna(subset=["Kontraktnummer", "Modtagelse", "Dato_r", "Status_r", "Syre_r", "Krop_r",
+#                                                "Aroma_r", "Eftersmag_r", "Robusta_r"]) \
+#                                .drop_duplicates(subset=["Kontraktnummer"])
 
-    else:
-        raw_grades = con.get_gc_grades() \
-            [["Dato", "Kontraktnummer", "Modtagelse", "Status", "Syre", "Krop", "Aroma", "Eftersmag"]] \
-            .rename(columns={"Dato": "Dato_r",
-                             "Status": "Status_r",
-                             "Syre": "Syre_r",
-                             "Krop": "Krop_r",
-                             "Aroma": "Aroma_r",
-                             "Eftersmag": "Eftersmag_r"}) \
-            .dropna(subset=["Kontraktnummer", "Modtagelse",  "Dato_r", "Status_r", "Syre_r", "Krop_r", "Aroma_r",
-                            "Eftersmag_r"]) \
-            .drop_duplicates(subset=["Kontraktnummer"])
+#     else:
+#         raw_grades = con.get_gc_grades() \
+#             [["Dato", "Kontraktnummer", "Modtagelse", "Status", "Syre", "Krop", "Aroma", "Eftersmag"]] \
+#             .rename(columns={"Dato": "Dato_r",
+#                              "Status": "Status_r",
+#                              "Syre": "Syre_r",
+#                              "Krop": "Krop_r",
+#                              "Aroma": "Aroma_r",
+#                              "Eftersmag": "Eftersmag_r"}) \
+#             .dropna(subset=["Kontraktnummer", "Modtagelse",  "Dato_r", "Status_r", "Syre_r", "Krop_r", "Aroma_r",
+#                             "Eftersmag_r"]) \
+#             .drop_duplicates(subset=["Kontraktnummer"])
 
-    return raw_grades
+#     return raw_grades
 
 
 
-def get_blend_grade_data(con: CoffeeDataConnection, robusta=True):
+def get_blend_grade_data(robusta=True):
     """
     Get the flavor data of the raw input coffee linked to the flavor data of the final output product for all products
     and raw input in the database.
@@ -55,39 +55,37 @@ def get_blend_grade_data(con: CoffeeDataConnection, robusta=True):
     """
     robusta_sorts = (10102120, 10102130, 10102170, 10102180, 10103420)
 
-    contracts = con.get_coffee_contracts()[["Kontraktnummer", "Sort"]]
-    recipes = con.get_recipe_information()[["Receptnummer", "Farve sætpunkt"]].rename(columns={"Farve sætpunkt": "Farve"})
-    roaster_input = con.get_roaster_input() \
+    contracts = bf.get_coffee_contracts()[["Kontraktnummer", "Sort"]]
+    recipes = bf.get_recipe_information()[["Receptnummer", "Farve sætpunkt"]].rename(columns={"Farve sætpunkt": "Farve"})
+    roaster_input = bf.get_roaster_input() \
         [["Dato", "Produktionsordre id", "Batch id", "Kontraktnummer", "Modtagelse", "Kilo"]] \
         .rename(columns={"Dato": "Dato_rist",
                          "Kilo": "Kilo_rist_input"}) \
         .dropna()
 
-    roaster_output = con.get_roaster_output().dropna(subset=["Ordrenummer"]).astype({"Ordrenummer": np.int64}) \
+    roaster_output = bf.get_roaster_output().dropna(subset=["Ordrenummer"]).astype({"Ordrenummer": np.int64}) \
         [["Produktionsordre id", "Batch id", "Ordrenummer", "Receptnummer", "Kilo"]] \
         .rename(columns={"Kilo": "Kilo_rist_output",
                          "Ordrenummer": "Ordre_rist"}) \
         .dropna()
 
     if (robusta):
-        raw_grades = con.get_gc_grades() \
-            [["Dato", "Kontraktnummer", "Modtagelse", "Status", "Syre", "Krop", "Aroma", "Eftersmag", "Robusta"]] \
+        raw_grades = bf.get_gc_grades() \
+            [["Dato", "Kontraktnummer", "Modtagelse", "Syre", "Krop", "Aroma", "Eftersmag", "Robusta"]] \
             .rename(columns={"Dato": "Dato_r",
-                             "Status": "Status_r",
                              "Syre": "Syre_r",
                              "Krop": "Krop_r",
                              "Aroma": "Aroma_r",
                              "Eftersmag": "Eftersmag_r",
                              "Robusta": "Robusta_r"})
         raw_grades['Robusta_r'] = raw_grades['Robusta_r'].fillna(10)
-        raw_grades = raw_grades.dropna(subset=["Kontraktnummer", "Dato_r", "Status_r", "Syre_r", "Krop_r", "Aroma_r",
+        raw_grades = raw_grades.dropna(subset=["Kontraktnummer", "Dato_r", "Syre_r", "Krop_r", "Aroma_r",
                                                "Eftersmag_r", "Robusta_r"])
 
-        product_grades = con.get_finished_goods_grades() \
-            [["Dato", "Ordrenummer", "Status", "Syre", "Krop", "Aroma", "Eftersmag", "Robusta"]] \
+        product_grades = bf.get_finished_goods_grades() \
+            [["Dato", "Ordrenummer", "Syre", "Krop", "Aroma", "Eftersmag", "Robusta"]] \
             .rename(columns={"Dato": "Dato_p",
                              "Ordrenummer": "Ordre_p",
-                             "Status": "Status_p",
                              "Syre": "Syre_p",
                              "Krop": "Krop_p",
                              "Aroma": "Aroma_p",
@@ -95,38 +93,36 @@ def get_blend_grade_data(con: CoffeeDataConnection, robusta=True):
                              "Robusta": "Robusta_p"})
         product_grades['Robusta_p'] = product_grades['Robusta_p'].fillna(10)
         product_grades = product_grades.dropna().drop_duplicates(subset=["Ordre_p", "Syre_p", "Krop_p", "Aroma_p",
-                                                                         "Eftersmag_p", "Robusta_p"])
+                                                                         "Eftersmag_p", "Robusta_p"]) \
+        .astype({'Ordre_p': np.int64})
     else:
-        raw_grades = con.get_gc_grades() \
-            [["Dato", "Kontraktnummer", "Modtagelse", "Status", "Syre", "Krop", "Aroma", "Eftersmag"]] \
+        raw_grades = bf.get_gc_grades() \
+            [["Dato", "Kontraktnummer", "Modtagelse", "Syre", "Krop", "Aroma", "Eftersmag"]] \
             .rename(columns={"Dato": "Dato_r",
-                             "Status": "Status_r",
                              "Syre": "Syre_r",
                              "Krop": "Krop_r",
                              "Aroma": "Aroma_r",
                              "Eftersmag": "Eftersmag_r"}) \
-            .dropna(subset=["Kontraktnummer", "Dato_r", "Status_r", "Syre_r", "Krop_r", "Aroma_r",
+            .dropna(subset=["Kontraktnummer", "Dato_r", "Syre_r", "Krop_r", "Aroma_r",
                             "Eftersmag_r"])
 
-        product_grades = con.get_finished_goods_grades() \
-            [["Dato", "Ordrenummer", "Status", "Syre", "Krop", "Aroma", "Eftersmag"]] \
+        product_grades = bf.get_finished_goods_grades() \
+            [["Dato", "Ordrenummer", "Syre", "Krop", "Aroma", "Eftersmag"]] \
             .rename(columns={"Dato": "Dato_p",
                              "Ordrenummer": "Ordre_p",
-                             "Status": "Status_p",
                              "Syre": "Syre_p",
                              "Krop": "Krop_p",
                              "Aroma": "Aroma_p",
                              "Eftersmag": "Eftersmag_p"}) \
-            .dropna().drop_duplicates(subset=["Ordre_p", "Syre_p", "Krop_p", "Aroma_p", "Eftersmag_p"])
+            .dropna().drop_duplicates(subset=["Ordre_p", "Syre_p", "Krop_p", "Aroma_p", "Eftersmag_p"]) \
+            .astype({'Ordre_p': np.int64})
 
-    raw_grades = raw_grades[raw_grades["Status_r"] == "Godkendt"]
-    product_grades = product_grades[product_grades["Status_p"] == "Godkendt"]
     product_grades["Smagningsid"] = list(range(len(product_grades)))
 
-    orders = con.get_order_relationships() \
+    orders = bf.get_order_relationships() \
         .rename(columns={"Ordre": "Ordre_p",
                          "Relateret ordre": "Ordre_rist"}) \
-        .dropna()
+        .dropna().astype({'Ordre_p': np.int64,'Ordre_rist': np.int64})
 
     roaster_output = pd.merge(roaster_output, recipes, on="Receptnummer")
 
@@ -137,13 +133,13 @@ def get_blend_grade_data(con: CoffeeDataConnection, robusta=True):
     res5 = pd.merge(raw_grades, res4, on=["Kontraktnummer", "Modtagelse"], how="right")
     raw_success = pd.merge(raw_grades, res4, on=["Kontraktnummer", "Modtagelse"], how="inner")
     if robusta:
-        missing_raw = res5[res5['Status_r'].isna()] \
-            .drop(columns=["Dato_r", "Modtagelse", "Status_r", "Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r",
+        missing_raw = res5[res5['Syre_r'].isna()] \
+            .drop(columns=["Dato_r", "Modtagelse", "Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r",
                            "Robusta_r"]) \
             .drop_duplicates()
     else:
-        missing_raw = res5[res5['Status_r'].isna()] \
-            .drop(columns=["Dato_r", "Modtagelse", "Status_r", "Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r"]) \
+        missing_raw = res5[res5['Syre_r'].isna()] \
+            .drop(columns=["Dato_r", "Modtagelse", "Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r"]) \
             .drop_duplicates()
 
     found_raw = pd.merge(missing_raw, raw_grades, on="Kontraktnummer")
@@ -233,3 +229,4 @@ def get_blend_grade_data(con: CoffeeDataConnection, robusta=True):
                         Y_list.append(y_np.flatten())
 
     return np.array(X_list), np.array(Y_list)
+
