@@ -239,7 +239,7 @@ def taste_diff(individual, flavor_model, candidates, target, color, MAX_C=7):
     model_input = np.concatenate((model_input, [0] * ((D + 1) * (size - num_components))))
     model_input = np.concatenate((model_input, [color]))
 
-    model_output = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1)))
+    model_output = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1))) # Dette er hvad vi "tror" input individual vil smage som - Let til tests
 
     return np.abs(target - model_output)
 
@@ -264,6 +264,7 @@ def blend_fitness(individual, prices, flavor_model, candidates, target, color, M
 
 
 def equal_blends(ind1, ind2):
+    #TODO: Blends er identiske hvis de indeholder de samme kontrakter, uagtet proportionerne
     comp1 = [ind1[i][0] for i in range(len(ind1)) if ind1[i][0] != -1]
     comp2 = [ind2[i][0] for i in range(len(ind2)) if ind2[i][0] != -1]
     return set(comp1) == set(comp2)
