@@ -38,10 +38,6 @@ def ga_cheapest_blend(contracts, flavors, prices, flavor_model, target_flavor, r
     assert (len(contracts) == len(flavors))
     assert (len(contracts) == len(prices))
 
-    # Scale the prices to unit variance and 0 mean
-    scaler = preprocessing.StandardScaler().fit(prices)
-    prices = scaler.transform(prices)
-
     N = len(contracts)
 
     # Start initializing the optimization problem as a maximization problem
