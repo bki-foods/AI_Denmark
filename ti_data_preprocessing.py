@@ -5,45 +5,6 @@ import pandas as pd
 import numpy as np
 
 
-# def get_raw_flavor_data(con: CoffeeDataConnection, robusta=True):
-#     """
-#     Get the raw flavor data from the database. Used to get training data for the ML model.
-#     :param con: A CoffeeDataConnection that is connected to the data we want to use (either database or excel file)
-#     :param robusta: Boolean for whether or not to consider robusta flavor.
-#     :return raw_grades: All the raw flavor grades from the given database.
-#     """
-#     if (robusta):
-#         raw_grades = con.get_gc_grades() \
-#             [["Dato", "Kontraktnummer", "Modtagelse", "Status", "Syre", "Krop", "Aroma", "Eftersmag", "Robusta"]] \
-#             .rename(columns={"Dato": "Dato_r",
-#                              "Status": "Status_r",
-#                              "Syre": "Syre_r",
-#                              "Krop": "Krop_r",
-#                              "Aroma": "Aroma_r",
-#                              "Eftersmag": "Eftersmag_r",
-#                              "Robusta": "Robusta_r"})
-#         raw_grades["Robusta_r"] = raw_grades["Robusta_r"].fillna(10)
-#         raw_grades = raw_grades.dropna(subset=["Kontraktnummer", "Modtagelse", "Dato_r", "Status_r", "Syre_r", "Krop_r",
-#                                                "Aroma_r", "Eftersmag_r", "Robusta_r"]) \
-#                                .drop_duplicates(subset=["Kontraktnummer"])
-
-#     else:
-#         raw_grades = con.get_gc_grades() \
-#             [["Dato", "Kontraktnummer", "Modtagelse", "Status", "Syre", "Krop", "Aroma", "Eftersmag"]] \
-#             .rename(columns={"Dato": "Dato_r",
-#                              "Status": "Status_r",
-#                              "Syre": "Syre_r",
-#                              "Krop": "Krop_r",
-#                              "Aroma": "Aroma_r",
-#                              "Eftersmag": "Eftersmag_r"}) \
-#             .dropna(subset=["Kontraktnummer", "Modtagelse",  "Dato_r", "Status_r", "Syre_r", "Krop_r", "Aroma_r",
-#                             "Eftersmag_r"]) \
-#             .drop_duplicates(subset=["Kontraktnummer"])
-
-#     return raw_grades
-
-
-
 def get_blend_grade_data(robusta=True):
     """
     Get the flavor data of the raw input coffee linked to the flavor data of the final output product for all products
