@@ -3,3 +3,4 @@ Server_information.py
 *.stats
 *.pyc
 ti_data_preprocessing - backup 2022-04-25.py
+bki_flavor_predictor_no_robusta.sav
