@@ -503,6 +503,7 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
     """
     Returns a dataframe with all available coffee contracts which adhere to criteria regarding
     locations, min. quantity as well as any certifications.
+    A list of select item numbers which should never be included are removed. This list is maintained in this function.
     Parameters
     ----------
     location_filter : dict
@@ -598,7 +599,13 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
         df = df.loc[(df['Kaffetype'] == 'A')]
     if certifications['Sammensætning'] == 'Ren Robusta':
         df = df.loc[(df['Kaffetype'] == 'R')]
-    # Remove any unnecesary columns from dataframe
+    # Remove specific items that should never be included, defined by item numbers.
+    customer_item_numbers = ['10104210','10104211','10104212','10104213'    # Sofiero
+                             ,'10104310','10104311','10104312'              # Wilson
+                             ,'10104240','10104241','10104242','10104243'   # SLOW
+                             ,'10104244','10104245']
+    df = df[~df['Sort'].isin(customer_item_numbers)]
+    # Remove any unnecesary columns from dataframe | Sofiero, SLOW, Wilson
     df.drop(['Syre_x','Aroma_x','Krop_x','Eftersmag_x','Robusta_x'
              ,'Syre_y','Aroma_y','Krop_y','Eftersmag_y','Robusta_y'
              ,'Lokation_filter', 'Leverandør', 'Høst', 'Høstår', 'Metode'
