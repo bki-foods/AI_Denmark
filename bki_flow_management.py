@@ -31,8 +31,7 @@ dict_locations = {
     ,'AARHUSHAVN': df_request['Lager_havn'].iloc[0]
     ,'SPOT': df_request['Lager_spot'].iloc[0]
     ,'AFLOAT': df_request['Lager_afloat'].iloc[0]
-    ,'UDLAND': df_request['Lager_udland'].iloc[0]
-    ,'VARER': df_request['Anvend_varer'].iloc[0]}
+    ,'UDLAND': df_request['Lager_udland'].iloc[0]}
 
 # Minimum available amount of coffee for an item to be included
 min_quantity = df_request['Minimum_lager'].iloc[0]
@@ -47,20 +46,16 @@ dict_certifications = {
     }
 
 # Get all available quantities available for use in production.
-# If "Varer" has been chosen, only include this part, as they are not compatible with actual available quantities.
-if dict_locations['VARER'] == 0:
-    df_available_coffee = bf.get_all_available_quantities(
-        dict_locations
-        ,min_quantity
-        ,dict_certifications)
-else:
-    df_available_coffee = bf.get_available_items(dict_certifications)
+df_available_coffee = bf.get_all_available_quantities(
+    dict_locations
+    ,min_quantity
+    ,dict_certifications)
 column_order_available_coffee = ['Kontraktnummer','Modtagelse','Lokation','Beholdning'
                                  ,'Syre','Aroma','Krop','Eftersmag','Robusta','Differentiale'
                                  ,'Sort','Varenavn','Screensize','Oprindelsesland','Mærkningsordning']
 df_available_coffee = df_available_coffee[column_order_available_coffee]
 df_available_coffee['Robusta'].fillna(10, inplace=True)
-df_available_coffee.dropna(subset=['Syre','Aroma','Krop','Eftersmag'], inplace=True) # Vi skal have karakterer, ellers dur det ikke
+df_available_coffee.dropna(subset=['Syre','Aroma','Krop','Eftersmag'], inplace=True) # Vi skal have karakterer, ellers dur det ikke #TODO Skal vi lave en oversigt over problembørnene?
 
 
 #TODO: Get data from TI script with suggestions for recipe combinations
