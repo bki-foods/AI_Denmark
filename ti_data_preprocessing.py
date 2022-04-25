@@ -30,53 +30,36 @@ def get_blend_grade_data(robusta=True):
                          "Ordrenummer": "Ordre_rist"}) \
         .dropna()
 
-    if (robusta):
-        raw_grades = bf.get_gc_grades() \
-            [["Dato", "Kontraktnummer", "Modtagelse", "Syre", "Krop", "Aroma", "Eftersmag", "Robusta"]] \
-            .rename(columns={"Dato": "Dato_r",
-                             "Syre": "Syre_r",
-                             "Krop": "Krop_r",
-                             "Aroma": "Aroma_r",
-                             "Eftersmag": "Eftersmag_r",
-                             "Robusta": "Robusta_r"})
-        raw_grades['Robusta_r'] = raw_grades['Robusta_r'].fillna(10)
-        raw_grades = raw_grades.dropna(subset=["Kontraktnummer", "Dato_r", "Syre_r", "Krop_r", "Aroma_r",
-                                               "Eftersmag_r", "Robusta_r"])
+    raw_grades = bf.get_gc_grades() \
+        [["Dato", "Kontraktnummer", "Modtagelse", "Syre", "Krop", "Aroma", "Eftersmag", "Robusta"]] \
+        .rename(columns={"Dato": "Dato_r",
+                         "Syre": "Syre_r",
+                         "Krop": "Krop_r",
+                         "Aroma": "Aroma_r",
+                         "Eftersmag": "Eftersmag_r",
+                         "Robusta": "Robusta_r"})
+    raw_grades['Robusta_r'] = raw_grades['Robusta_r'].fillna(10)
+    raw_grades = raw_grades.dropna(subset=["Kontraktnummer", "Dato_r", "Syre_r", "Krop_r", "Aroma_r",
+                                           "Eftersmag_r"])
 
-        product_grades = bf.get_finished_goods_grades() \
-            [["Dato", "Ordrenummer", "Syre", "Krop", "Aroma", "Eftersmag", "Robusta"]] \
-            .rename(columns={"Dato": "Dato_p",
-                             "Ordrenummer": "Ordre_p",
-                             "Syre": "Syre_p",
-                             "Krop": "Krop_p",
-                             "Aroma": "Aroma_p",
-                             "Eftersmag": "Eftersmag_p",
-                             "Robusta": "Robusta_p"})
-        product_grades['Robusta_p'] = product_grades['Robusta_p'].fillna(10)
-        product_grades = product_grades.dropna().drop_duplicates(subset=["Ordre_p", "Syre_p", "Krop_p", "Aroma_p",
-                                                                         "Eftersmag_p", "Robusta_p"]) \
+    product_grades = bf.get_finished_goods_grades() \
+        [["Dato", "Ordrenummer", "Syre", "Krop", "Aroma", "Eftersmag", "Robusta"]] \
+        .rename(columns={"Dato": "Dato_p",
+                         "Ordrenummer": "Ordre_p",
+                         "Syre": "Syre_p",
+                         "Krop": "Krop_p",
+                         "Aroma": "Aroma_p",
+                         "Eftersmag": "Eftersmag_p",
+                         "Robusta": "Robusta_p"})
+    product_grades['Robusta_p'] = product_grades['Robusta_p'].fillna(10)
+    product_grades = product_grades.dropna() \
+        .drop_duplicates(subset=["Ordre_p", "Syre_p", "Krop_p", "Aroma_p","Eftersmag_p"]) \
         .astype({'Ordre_p': np.int64})
-    else:
-        raw_grades = bf.get_gc_grades() \
-            [["Dato", "Kontraktnummer", "Modtagelse", "Syre", "Krop", "Aroma", "Eftersmag"]] \
-            .rename(columns={"Dato": "Dato_r",
-                             "Syre": "Syre_r",
-                             "Krop": "Krop_r",
-                             "Aroma": "Aroma_r",
-                             "Eftersmag": "Eftersmag_r"}) \
-            .dropna(subset=["Kontraktnummer", "Dato_r", "Syre_r", "Krop_r", "Aroma_r",
-                            "Eftersmag_r"])
+    
+    if not robusta:
+        raw_grades.drop('Robusta_r', inplace=True, axis=1)
+        product_grades.drop('Robusta_p', inplace=True, axis=1)
 
-        product_grades = bf.get_finished_goods_grades() \
-            [["Dato", "Ordrenummer", "Syre", "Krop", "Aroma", "Eftersmag"]] \
-            .rename(columns={"Dato": "Dato_p",
-                             "Ordrenummer": "Ordre_p",
-                             "Syre": "Syre_p",
-                             "Krop": "Krop_p",
-                             "Aroma": "Aroma_p",
-                             "Eftersmag": "Eftersmag_p"}) \
-            .dropna().drop_duplicates(subset=["Ordre_p", "Syre_p", "Krop_p", "Aroma_p", "Eftersmag_p"]) \
-            .astype({'Ordre_p': np.int64})
 
     product_grades["Smagningsid"] = list(range(len(product_grades)))
 
