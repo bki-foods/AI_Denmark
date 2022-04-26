@@ -55,7 +55,7 @@ def get_blend_grade_data(robusta=True):
     product_grades = product_grades.dropna() \
         .drop_duplicates(subset=["Ordre_p", "Syre_p", "Krop_p", "Aroma_p","Eftersmag_p"]) \
         .astype({'Ordre_p': np.int64})
-# Remove robusta columns from dataset if they are not be used for training the model    
+    # Remove robusta columns from dataset if they are not be used for training the model    
     if not robusta:
         raw_grades.drop('Robusta_r', inplace=True, axis=1)
         product_grades.drop('Robusta_p', inplace=True, axis=1)
