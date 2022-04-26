@@ -603,7 +603,9 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
     customer_item_numbers = ['10104210','10104211','10104212','10104213'    # Sofiero
                              ,'10104310','10104311','10104312'              # Wilson
                              ,'10104240','10104241','10104242','10104243'   # SLOW
-                             ,'10104244','10104245']
+                             ,'10104244','10104245'
+                             ,'10104110','10104111','10104112','10104113'   # Kontra
+                             ,'10104116']
     df = df[~df['Sort'].isin(customer_item_numbers)]
     # Remove any unnecesary columns from dataframe | Sofiero, SLOW, Wilson
     df.drop(['Syre_x','Aroma_x','Krop_x','Eftersmag_x','Robusta_x'
