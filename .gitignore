@@ -6,3 +6,4 @@ ti_data_preprocessing - backup 2022-04-25.py
 bki_flavor_predictor_no_robusta.sav
 bki_flavor_predictor_no_robusta.sav
 test.py
+bki_server_information.py
