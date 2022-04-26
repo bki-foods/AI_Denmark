@@ -28,3 +28,11 @@ con_probat = pyodbc.connect(f'DRIVER=SQL Server;SERVER={server_probat};DATABASE=
 # Filepaths
 # =============================================================================
 filepath_report = r'\\appsrv07\Python filer\Receptforslag'
+filepath_models = r'\\appsrv07\Python filer\Receptforslag\Modeller'
+filepath_models_archive = r'\\appsrv07\Python filer\Receptforslag\Modeller\Arkiv'
+
+# =============================================================================
+# Model names
+# =============================================================================
+name_model_include_robusta = 'bki_flavor_predictor_robusta.sav'
+name_model_exclude_robusta = 'bki_flavor_predictor_no_robusta.sav'
