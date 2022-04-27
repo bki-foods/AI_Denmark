@@ -15,6 +15,7 @@ def get_blend_grade_data(robusta=True):
         the flavor of the corresponding output product (Y).
     """
     robusta_sorts = (10102120, 10102130, 10102170, 10102180, 10103420)
+    bar_recipes = ('10401005','10401207')
 
     contracts = bf.get_coffee_contracts()[["Kontraktnummer", "Sort"]]
     recipes = bf.get_recipe_information()[["Receptnummer", "Farve sætpunkt"]].rename(columns={"Farve sætpunkt": "Farve"})
@@ -76,7 +77,7 @@ def get_blend_grade_data(robusta=True):
     res4 = pd.merge(contracts, res3, on=["Kontraktnummer"])
     res5 = pd.merge(raw_grades, res4, on=["Kontraktnummer", "Modtagelse"], how="right")
     raw_success = pd.merge(raw_grades, res4, on=["Kontraktnummer", "Modtagelse"], how="inner")
-    if robusta:
+    if robusta: #TODO refactor below -> only robusta flavor is dependant on the if portion
         missing_raw = res5[res5['Syre_r'].isna()] \
             .drop(columns=["Dato_r", "Modtagelse", "Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r",
                            "Robusta_r"]) \
@@ -105,8 +106,10 @@ def get_blend_grade_data(robusta=True):
         batch_ids = list(set(tasting_data["Batch id"]))
         prod_ids = list(set(tasting_data["Produktionsordre id"]))
 
-        # If the product contains robusta coffee, we need to do the analysis on "Produktionsordre"-level
-        if not set(tasting_data["Sort"]).isdisjoint(robusta_sorts):
+        # # If the product contains robusta coffee, we need to do the analysis on "Produktionsordre"-level
+        # if not set(tasting_data["Sort"]).isdisjoint(robusta_sorts):
+        # If the produced recipes are used for BAR blends, do the analysis on "Produktionsordre"-level
+        if not set(tasting_data['Receptnummer']).isdisjoint(bar_recipes):
             for p_id in prod_ids:
                 prod_data = tasting_data[tasting_data["Produktionsordre id"] == p_id]
                 full_prod = roaster_input[roaster_input["Produktionsordre id"] == p_id]
@@ -174,3 +177,4 @@ def get_blend_grade_data(robusta=True):
 
     return np.array(X_list), np.array(Y_list)
 
+get_blend_grade_data(False)
