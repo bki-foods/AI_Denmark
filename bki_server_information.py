@@ -34,5 +34,5 @@ filepath_models_archive = r'\\appsrv07\Python filer\Receptforslag\Modeller\Arkiv
 # =============================================================================
 # Model names
 # =============================================================================
-name_model_include_robusta = 'bki_flavor_predictor_robusta.sav'
-name_model_exclude_robusta = 'bki_flavor_predictor_no_robusta.sav'
+name_model_include_robusta = 'flavor_predictor_robusta.sav'
+name_model_exclude_robusta = 'flavor_predictor_no_robusta.sav'
