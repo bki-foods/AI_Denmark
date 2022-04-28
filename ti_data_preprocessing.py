@@ -1,4 +1,5 @@
-import math
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 import bki_functions as bf
 import pandas as pd
@@ -14,7 +15,7 @@ def get_blend_grade_data(robusta=True):
     :return X_list, Y_list: A dataset of all the input flavors (X) for every blend produced in the database coupled with
         the flavor of the corresponding output product (Y).
     """
-    robusta_sorts = (10102120, 10102130, 10102170, 10102180, 10103420)
+    # robusta_sorts = (10102120, 10102130, 10102170, 10102180, 10103420)
     bar_recipes = ('10401005','10401207')
 
     contracts = bf.get_coffee_contracts()[["Kontraktnummer", "Sort"]]
@@ -77,6 +78,7 @@ def get_blend_grade_data(robusta=True):
     res4 = pd.merge(contracts, res3, on=["Kontraktnummer"])
     res5 = pd.merge(raw_grades, res4, on=["Kontraktnummer", "Modtagelse"], how="right")
     raw_success = pd.merge(raw_grades, res4, on=["Kontraktnummer", "Modtagelse"], how="inner")
+
     if robusta: #TODO refactor below -> only robusta flavor is dependant on the if portion
         missing_raw = res5[res5['Syre_r'].isna()] \
             .drop(columns=["Dato_r", "Modtagelse", "Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r",
@@ -116,12 +118,12 @@ def get_blend_grade_data(robusta=True):
                 weight_tasted_prod = sum(prod_data["Kilo_rist_input"])
                 weight_full_prod = sum(full_prod["Kilo_rist_input"])
 
-                if 1.0 - weight_tasted_prod / weight_full_prod < 0.1:
+                if 1.0 - weight_tasted_prod / weight_full_prod < 0.1: #Use data if we have data for 90% of the production order
                     weight_per_contract = prod_data[["Kontraktnummer", "Modtagelse", "Kilo_rist_input"]] \
                         .groupby(["Kontraktnummer", "Modtagelse"]).sum()
                     unique_contracts = prod_data.groupby(["Kontraktnummer", "Modtagelse"]).mean()
 
-                    if 0 < len(unique_contracts) <= 7:
+                    if 0 < len(unique_contracts) <= 7: # Only use data if we have 7 or fewer unique contracts used in the order, to ensure same dimensions as our input in the model
                         unique_contracts["Proportion"] = weight_per_contract["Kilo_rist_input"] / \
                                                          sum(weight_per_contract["Kilo_rist_input"])
 
@@ -176,5 +178,3 @@ def get_blend_grade_data(robusta=True):
                         Y_list.append(y_np.flatten())
 
     return np.array(X_list), np.array(Y_list)
-
-get_blend_grade_data(False)
