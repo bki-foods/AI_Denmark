@@ -7,14 +7,26 @@ from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 import joblib
+import time
 import ti_data_preprocessing as tdp
+import bki_functions as bf
 
 
+# Grab Currrent Time Before Running the Code for logging of total execution time
+start_time = time.time()
+# Write into log that script has started
+bf.log_insert('ti_train_model.py', 'Training of model has started.')
+
+
+# Function to swap rows to create more data for training of model
 def row_swapper(x):
     row_len = (len(x)-1)//7
     new_row_order = list(range(0,7))
     random.shuffle(new_row_order)
     return np.append(np.array([x[i*row_len:(i+1)*row_len] for i in new_row_order]).flatten(), x[-1])
+
+
+model_name = 'flavor_predictor_robusta.sav'
 
 
 X,Y = tdp.get_blend_grade_data()
@@ -36,7 +48,7 @@ y_train_ext = y_augmented[perm, :]
 # Train model
 regr = MLPRegressor(hidden_layer_sizes=(300, 200, 100, 100), alpha=0.01, activation="tanh", max_iter=2000).fit(X_train_ext, y_train_ext)
 # Save trained model
-joblib.dump(regr, "bki_flavor_predictor_robusta.sav")
+joblib.dump(regr, model_name)
 
 
 # Evaluate model
@@ -47,9 +59,15 @@ print("NN: \t\tMSE: {0}, \n\t\tMAE: {1}"\
               mean_absolute_error(y_test, y_hat, multioutput='raw_values')))
     
     
-    
-    
-    
-    
+# Grab Currrent Time After Running the Code for logging of total execution time
+end_time = time.time()
+total_time = end_time - start_time
+#Subtract Start Time from The End Time
+total_time_seconds = int(total_time) % 60
+total_time_minutes = total_time // 60
+total_time_hours = total_time // 60
+execution_time = str("%d:%02d:%02d" % (total_time_hours, total_time_minutes, total_time_seconds))
+# Write into log that script has completed
+bf.log_insert('ti_train_model.py', f'Training of model has completed. Total time: {execution_time}')
     
     
