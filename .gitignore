@@ -5,3 +5,4 @@ Server_information.py
 flavor_predictor_no_robusta.sav
 flavor_predictor_robusta.sav
 test.py
+bki_server_information.py
