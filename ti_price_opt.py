@@ -1,10 +1,10 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import random
-import math
 import numpy as np
-import pandas as pd
 from deap import base, creator, tools, algorithms
 from sklearn import preprocessing
-import joblib
 
 
 def ga_cheapest_blend(contracts, flavors, prices, flavor_model, target_flavor, roast_color, MIN_C=1, MAX_C=7,
@@ -235,12 +235,13 @@ def taste_diff(individual, flavor_model, candidates, target, color, MAX_C=7):
     for c, p in zip(components, proportions):
         model_input = np.concatenate((model_input, candidates[c, :]))
         model_input = np.concatenate((model_input, [p]))
-
     model_input = np.concatenate((model_input, [0] * ((D + 1) * (size - num_components))))
     model_input = np.concatenate((model_input, [color]))
 
-    model_output = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1))) # Dette er hvad vi "tror" input individual vil smage som - Let til tests
-
+    # model_output = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1))) # Dette er hvad vi "tror" input individual vil smage som - Let til tests
+    # model_output = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1)) * 2) / 2 # Round to .5 values
+    model_output = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1)) * 4) / 4 # Round to .25 values
+    # Evt. gang ovenstående med 2 --> round --> divider med 2 for at få halve karakterer
     return np.abs(target - model_output)
 
 
@@ -268,3 +269,79 @@ def equal_blends(ind1, ind2):
     comp1 = [ind1[i][0] for i in range(len(ind1)) if ind1[i][0] != -1]
     comp2 = [ind2[i][0] for i in range(len(ind2)) if ind2[i][0] != -1]
     return set(comp1) == set(comp2)
+
+
+
+
+# # BKI function to predict a taste profile from a dataframe input
+# def predict_taste_profile(dataframe: pd.DataFrame(), column_names_flavor: list, target_flavor: np.ndarray, 
+#                           color: int, iteration_column: str, column_names_blend: str, flavor_model):
+#     # Get a list of unique column values to iterate over, assuming data is int
+#     blend_no_iterator = dataframe[iteration_column].unique().tolist()
+#     # Iterate over each blend
+#     for no in blend_no_iterator:
+#         # Filter main dataframe to only contain rows for each blend before flavour prediction is done
+#         df_temp = dataframe.loc[(dataframe[iteration_column] == no)]
+#         # No of flavor components to predict
+#         flavors_list = df_temp[column_names_flavor].to_numpy()
+#         D = len(flavors_list[0, :])
+#         size = len(flavors_list)
+    
+#         components = [int(flavors_list[i][0]) for i in range(size) if flavors_list[i][0] != -1]
+#         proportions = [flavors_list[i][1] for i in range(size) if flavors_list[i][0] != -1]
+#         num_components = len(components)
+ 
+#         model_input = np.array([])
+#         for c, p in zip(components, proportions):
+#             model_input = np.concatenate((model_input, flavors_list[c, :]))
+#             model_input = np.concatenate((model_input, [p]))
+#         model_input = np.concatenate((model_input, [0] * ((D + 1) * (size - num_components))))
+#         model_input = np.concatenate((model_input, [color]))
+    
+#         model_output = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1)) * 2) / 2
+    
+#         print(model_output)
+
+#     return model_output
+
+
+
+
+# # BKI function to predict a taste profile from a dataframe input
+def predict_taste_profile(individual, flavor_model, candidates, target, color, MAX_C=7):
+    D = len(candidates[0, :])
+    size = len(individual)
+    components = [individual[i][0] for i in range(size) if individual[i][0] != -1]
+    proportions = [individual[i][1] for i in range(size) if individual[i][0] != -1]
+    num_components = len(components)
+
+    model_input = np.array([])
+    for c, p in zip(components, proportions):
+        model_input = np.concatenate((model_input, candidates[c, :]))
+        model_input = np.concatenate((model_input, [p]))
+    model_input = np.concatenate((model_input, [0] * ((D + 1) * (size - num_components))))
+    model_input = np.concatenate((model_input, [color]))
+
+    # model_output = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1))) # Dette er hvad vi "tror" input individual vil smage som - Let til tests
+    # model_output = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1)) * 2) / 2 # Round to .5 values
+    model_output = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1)) * 4) / 4 # Round to .25 values
+    # Evt. gang ovenstående med 2 --> round --> divider med 2 for at få halve karakterer
+    return model_output
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
