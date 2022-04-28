@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import pandas as pd
-import numpy as np
 import joblib
 import bki_functions as bf
 import bki_server_information as bsi
@@ -56,34 +55,39 @@ column_order_available_coffee = ['Kontraktnummer','Modtagelse','Lokation','Behol
                                  ,'Syre','Aroma','Krop','Eftersmag','Robusta','Differentiale'
                                  ,'Sort','Varenavn','Screensize','Oprindelsesland','Mærkningsordning']
 df_available_coffee = df_available_coffee[column_order_available_coffee]
-# Replace all na values for robusta with 10
+# Replace all na values for robusta with 10 if algorithm is to predict this, otherwise remove it
 if predict_robusta:
     df_available_coffee['Robusta'].fillna(10, inplace=True)
-# Remove robusta column if algorithm is not expected to predict it
-if not predict_robusta:
-    df_available_coffee.drop('Robusta', inplace=True, axis=1) # Comment
+else:
+    df_available_coffee.drop('Robusta', inplace=True, axis=1)
 # Remove rows with na, we need values for all parameters. Reset index afterwards
 df_available_coffee.dropna(subset=['Syre','Aroma','Krop','Eftersmag'],inplace=True)
 df_available_coffee.reset_index(drop=True, inplace=True)
 # Add dataframe index to a column to use for join later on
 df_available_coffee['Kontrakt_id'] = df_available_coffee.index
-# df_available_coffee['Differentiale'] = 0.0
+df_available_coffee['Differentiale'] = 0.0
 
 if predict_robusta:
     flavors_list = df_available_coffee[['Syre','Aroma','Krop','Eftersmag','Robusta']].to_numpy()
     target_flavor_list = df_request[['Syre','Aroma','Krop','Eftersmag','Robusta']].to_numpy()[0]
+    model_name = 'flavor_predictor_robusta.sav'
 else:
     flavors_list = df_available_coffee[['Syre','Aroma','Krop','Eftersmag']].to_numpy()
     target_flavor_list = df_request[['Syre','Aroma','Krop','Eftersmag']].to_numpy()[0]
+    model_name = 'flavor_predictor_no_robusta.sav'
 # Lists indifferent to whether or not robusta is to be predicted or not
 differentials_list = df_available_coffee['Differentiale'].to_numpy().reshape(-1, 1)
 contracts_list = df_available_coffee['Kontraktnummer'].to_list()
+
+# model for flavor predictor
+flavor_predictor = joblib.load(model_name)
+
 
 blend_suggestions_population, blend_suggestions_logbook, blend_suggestions_hof = tpo.ga_cheapest_blend(
     contracts_list
     ,flavors_list
     ,differentials_list
-    ,joblib.load('bki_flavor_predictor_no_robusta.sav') # 'bki_flavor_predictor_robusta.sav'
+    ,flavor_predictor
     ,target_flavor_list
     ,df_request['Farve'].iloc[0])
 
@@ -91,6 +95,7 @@ blend_suggestions_population, blend_suggestions_logbook, blend_suggestions_hof =
 #       ,blend_suggestions_logbook
 #       ,blend_suggestions_hof)
 
+# print(blend_suggestions_hof)
 
 # =============================================================================
 # Create Excel workbook with relevant sheets
@@ -144,6 +149,8 @@ bf.insert_dataframe_into_excel(
     excel_writer
     ,bf.get_identical_recipes(request_syre, request_aroma, request_krop, request_eftersmag)
     ,'Identiske, lign. recepter')
+
+
 # Input data for request, replace 0/1 with text values before transposing
 dict_include_exclude = {0: 'Ekskluder', 1: 'Inkluder'}
 columns_include_exclude = ['Inkluder_konventionel','Inkluder_fairtrade','Inkluder_økologi'
@@ -187,8 +194,6 @@ bf.insert_dataframe_into_excel(
     excel_writer
     ,df_blend_population
     ,'Blend population')
-
-
 
 # Save and close workbook
 excel_writer.save()
