@@ -52,7 +52,8 @@ df_available_coffee = bf.get_all_available_quantities(
     ,min_quantity
     ,dict_certifications)
 column_order_available_coffee = ['Kontraktnummer','Modtagelse','Lokation','Beholdning'
-                                 ,'Syre','Aroma','Krop','Eftersmag','Robusta','Differentiale'
+                                 ,'Syre','Aroma','Krop','Eftersmag','Robusta'
+                                 ,'Differentiale', 'Kostpris','Standard Cost'
                                  ,'Sort','Varenavn','Screensize','Oprindelsesland','Mærkningsordning']
 df_available_coffee = df_available_coffee[column_order_available_coffee]
 # Replace all na values for robusta with 10 if algorithm is to predict this, otherwise remove it
@@ -65,7 +66,7 @@ df_available_coffee.dropna(subset=['Syre','Aroma','Krop','Eftersmag'],inplace=Tr
 df_available_coffee.reset_index(drop=True, inplace=True)
 # Add dataframe index to a column to use for join later on
 df_available_coffee['Kontrakt_id'] = df_available_coffee.index
-df_available_coffee['Differentiale'] = 0.0
+# df_available_coffee['Differentiale'] = 0.0
 
 if predict_robusta:
     flavors_list = df_available_coffee[['Syre','Aroma','Krop','Eftersmag','Robusta']].to_numpy()
@@ -76,7 +77,7 @@ else:
     target_flavor_list = df_request[['Syre','Aroma','Krop','Eftersmag']].to_numpy()[0]
     model_name = 'flavor_predictor_no_robusta.sav'
 # Lists indifferent to whether or not robusta is to be predicted or not
-differentials_list = df_available_coffee['Differentiale'].to_numpy().reshape(-1, 1)
+contract_prices_list = df_available_coffee['Standard Cost'].to_numpy().reshape(-1, 1) #df_available_coffee['Differentiale'].to_numpy().reshape(-1, 1)
 contracts_list = df_available_coffee['Kontraktnummer'].to_list()
 
 # model for flavor predictor
@@ -86,7 +87,7 @@ flavor_predictor = joblib.load(model_name)
 blend_suggestions_population, blend_suggestions_logbook, blend_suggestions_hof = tpo.ga_cheapest_blend(
     contracts_list
     ,flavors_list
-    ,differentials_list
+    ,contract_prices_list
     ,flavor_predictor
     ,target_flavor_list
     ,df_request['Farve'].iloc[0])
@@ -121,22 +122,24 @@ for blend in blend_suggestions_hof:
             df_blend_suggestions = df_blend_suggestions.append(data, ignore_index = True)
 # Defined column order for final dataframe, only add robusta if it is to be predicted.
 blend_suggestion_columns = ['Blend_nr' ,'Kontraktnummer' ,'Modtagelse' ,'Proportion'
-                            ,'Sort','Varenavn','Differentiale'
+                            ,'Sort','Varenavn','Differentiale','Kostpris','Standard Cost','Beregnet pris'
                             ,'Syre', 'Aroma', 'Krop', 'Eftersmag'
                             ,'Screensize', 'Oprindelsesland','Mærkningsordning', 'Kontrakt_id']
 if predict_robusta:
-    blend_suggestion_columns[11:11] = ['Robusta']
+    blend_suggestion_columns[14:14] = ['Robusta']
 # Merge blend suggestions with input available coffees to add additional info to datafarme, and alter column order
 df_blend_suggestions = pd.merge(
     left = df_blend_suggestions
     ,right = df_available_coffee
     ,how = 'left'
     ,left_on= 'Kontraktnummer_index'
-    ,right_on = 'Kontrakt_id')[blend_suggestion_columns]
+    ,right_on = 'Kontrakt_id')
+# Calculate blend cost per component using the standard cost price of each component
+df_blend_suggestions['Beregnet pris'] = df_blend_suggestions['Proportion'] * df_blend_suggestions['Standard Cost']
 # Insert into workbook
 bf.insert_dataframe_into_excel(
     excel_writer
-    ,df_blend_suggestions
+    ,df_blend_suggestions[blend_suggestion_columns]
     ,'Blend forslag')
 
 # Green coffee input, insert into workbook
@@ -166,34 +169,6 @@ bf.insert_dataframe_into_excel(
     excel_writer
     ,df_request
     ,'Data for anmodning')
-
-# Suggested blends, last population (1000 blends)
-df_blend_population = pd.DataFrame(columns=['Blend_nr','Kontraktnummer_index','Proportion'])   
-# Create iterator to create a blend number for each complete blend suggestion
-blend_no = 0
-# Nested lists and tuples, format: [[(),(),()],[(),(),()],[(),(),()]]
-for blend in blend_suggestions_population:
-    blend_no += 1
-    for component_line in blend:
-        if not component_line[0] == -1: # -1 indicates a NULL placeholder value, these are ignored
-            con_ix = component_line[0]
-            # Extract data for each component line for each blend suggestion and append to dataframe
-            data = {'Blend_nr': blend_no
-                    ,'Kontraktnummer_index': con_ix
-                    ,'Proportion': component_line[1]}
-            df_blend_population = df_blend_population.append(data, ignore_index = True)
-# Merge blend suggestions with input available coffees to add additional info to datafarme, and alter column order
-df_blend_population = pd.merge(
-    left = df_blend_population
-    ,right = df_available_coffee
-    ,how = 'left'
-    ,left_on= 'Kontraktnummer_index'
-    ,right_on = 'Kontrakt_id')[blend_suggestion_columns]
-# Insert into workbook
-bf.insert_dataframe_into_excel(
-    excel_writer
-    ,df_blend_population
-    ,'Blend population')
 
 # Save and close workbook
 excel_writer.save()
