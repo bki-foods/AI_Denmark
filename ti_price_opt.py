@@ -259,9 +259,13 @@ def blend_fitness(individual, prices, flavor_model, candidates, target, color, M
     prices = min_max_scaler.fit_transform(prices)
     diff = taste_diff(individual, flavor_model, candidates, target, color, MAX_C)
     cost = blend_cost(individual, prices)
-    flavor_bound = 1 / (2 ** np.mean(diff ** 3))
-    return flavor_bound * (1.0 - cost)
-    #return flavor_bound / (1.2 ** cost),
+    flavor_bound = 1 / (2 ** np.mean(diff ** 3)) # Evt. opløft i 4 eller 5 - ret i 2 eller 3
+    
+    bki_blend_fitness =  flavor_bound - ( cost * 0.0003)
+    
+    return bki_blend_fitness
+    # return flavor_bound * (1.0 - cost) # Senest aktuelle return value!
+    #return flavor_bound / (1.2 ** cost), # Skalering af deres andel bør ikke være nødvendig når der er styr på de mere ekstreme profiler
 
 
 def equal_blends(ind1, ind2):
@@ -272,7 +276,27 @@ def equal_blends(ind1, ind2):
 
 
 
+#TODO predict taste profile of each blend suggestion
+#Blend = først levels i hall of fame, flavor model = model, component_flavors = numpy array med kontrakternes smagsprofil, color = farve
+#OBS OBS OBS!!!! Component flavors skal være en liste over samtlige kontrakter med deres smag!!!
+def taste_pred(blend, flavor_model, component_flavors, color):
+    D = len(component_flavors[0, :])
+    size = len(blend)
+    components = [blend[i][0] for i in range(size) if blend[i][0] != -1]
+    proportions = [blend[i][1] for i in range(size) if blend[i][0] != -1]
+    num_components = len(components)
 
+    model_input = np.array([])
+    for c, p in zip(components, proportions):
+        model_input = np.concatenate((model_input, component_flavors[c, :]))
+        model_input = np.concatenate((model_input, [p]))
+
+    model_input = np.concatenate((model_input, [0] * ((D + 1) * (size - num_components))))
+    model_input = np.concatenate((model_input, [color]))
+
+    predicted_flavors = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1)) * 4) / 4 # Round to .25 values
+
+    return predicted_flavors
 
 
 
