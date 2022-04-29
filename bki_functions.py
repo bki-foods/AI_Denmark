@@ -134,7 +134,7 @@ def get_coffee_contracts() -> pd.DataFrame():
                 WHEN PH.[Washed Coffee] = 0 AND PH.[No_] >= '21-037' THEN 'Uvasket'
         		ELSE NULL END AS [Metode]
         	,PL.[No_] AS [Sort] ,I.[Mærkningsordning] ,PH.[Differentials] AS [Differentiale]
-            ,I.[Description] AS [Varenavn]
+            ,I.[Description] AS [Varenavn], I.[Unit Cost] AS [Kostpris], I.[Standard Cost]
 			,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%FAIR%' THEN 1 ELSE 0 END AS [Fairtrade]
 			,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%ØKO%' THEN 1 ELSE 0 END AS [Økologi]
 			,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%RFA%' THEN 1 ELSE 0 END AS [Rainforest]
@@ -145,7 +145,7 @@ def get_coffee_contracts() -> pd.DataFrame():
             	ON PH.[No_] = PL.[Document No_]
             	AND [PL].[Line No_] = 10000
 				AND PL.[Type] = 2
-            LEFT JOIN [dbo].[BKI foods a_s$Item] AS I
+            INNER JOIN [dbo].[BKI foods a_s$Item] AS I
             	ON PL.[No_] = I.[No_]
             LEFT JOIN [dbo].[BKI foods a_s$Country_Region] AS CR
             	ON PH.[Pay-to Country_Region Code] = CR.[Code]
