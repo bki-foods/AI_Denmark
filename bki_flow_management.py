@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import pandas as pd
+import numpy as np
 import joblib
 import bki_functions as bf
 import bki_server_information as bsi
@@ -18,6 +19,7 @@ request_syre = df_request["Syre"].iloc[0]
 request_aroma = df_request["Aroma"].iloc[0]
 request_krop = df_request["Krop"].iloc[0]
 request_eftersmag = df_request["Eftersmag"].iloc[0]
+request_farve = df_request["Farve"].iloc[0]
 # Setting to differentiate between whether or not algorithm is expected to predict robusta taste or not
 predict_robusta = False
 
@@ -90,7 +92,7 @@ blend_suggestions_population, blend_suggestions_logbook, blend_suggestions_hof =
     ,contract_prices_list
     ,flavor_predictor
     ,target_flavor_list
-    ,df_request["Farve"].iloc[0])
+    ,request_farve)
 
 # print(blend_suggestions_population
 #       ,blend_suggestions_logbook
@@ -141,6 +143,24 @@ bf.insert_dataframe_into_excel(
     excel_writer
     ,df_blend_suggestions[blend_suggestion_columns]
     ,"Blend forslag")
+
+# Sumarized blend suggestions with total cost
+df_blend_suggestions_summarized = df_blend_suggestions.groupby(["Blend_nr"],dropna=False) \
+                                                      .agg({"Beregnet pris": 'sum'}) \
+                                                      .reset_index()
+blend_no_iterator = df_blend_suggestions_summarized["Blend_nr"].to_list()
+for blend_no in blend_no_iterator:
+    # Iterate over integers.. cleanup...
+    blend_no = int(blend_no)
+    hof_blend_no_index = int(blend_no) -1
+    # Get hof blend by index
+    hof_blend = blend_suggestions_hof[hof_blend_no_index]
+    # Predict flavor
+    predicted_flavors = tpo.taste_pred(hof_blend, flavor_predictor, flavors_list, request_farve)
+    print(predicted_flavors)
+
+
+
 
 # Green coffee input, insert into workbook
 bf.insert_dataframe_into_excel(
