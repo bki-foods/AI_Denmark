@@ -110,7 +110,7 @@ def get_blend_grade_data(robusta=True):
 
         # # If the product contains robusta coffee, we need to do the analysis on "Produktionsordre"-level
         # if not set(tasting_data["Sort"]).isdisjoint(robusta_sorts):
-        # If the produced recipes are used for BAR blends, do the analysis on "Produktionsordre"-level
+        # If the produced recipes are used for BAR blends, do the analysis on "Produktionsordre"-level # Weigh 10401005/10401207 as 2/3 and 1/3
         if not set(tasting_data['Receptnummer']).isdisjoint(bar_recipes):
             for p_id in prod_ids:
                 prod_data = tasting_data[tasting_data["Produktionsordre id"] == p_id]
