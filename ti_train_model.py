@@ -15,7 +15,7 @@ import bki_functions as bf
 # Grab Currrent Time Before Running the Code for logging of total execution time
 start_time = time.time()
 # Write into log that script has started
-bf.log_insert('ti_train_model.py', 'Training of model has started.')
+bf.log_insert("ti_train_model.py", "Training of model has started.")
 
 
 # Function to swap rows to create more data for training of model
@@ -26,7 +26,7 @@ def row_swapper(x):
     return np.append(np.array([x[i*row_len:(i+1)*row_len] for i in new_row_order]).flatten(), x[-1])
 
 
-model_name = 'flavor_predictor_robusta.sav'
+model_name = "flavor_predictor_robusta.sav"
 
 
 X,Y = tdp.get_blend_grade_data()
@@ -55,8 +55,8 @@ joblib.dump(regr, model_name)
 n = len(X_test)
 y_hat = regr.predict(X_test[0:n,:])
 print("NN: \t\tMSE: {0}, \n\t\tMAE: {1}"\
-      .format(mean_squared_error(y_test, y_hat, multioutput='raw_values'),
-              mean_absolute_error(y_test, y_hat, multioutput='raw_values')))
+      .format(mean_squared_error(y_test, y_hat, multioutput="raw_values"),
+              mean_absolute_error(y_test, y_hat, multioutput="raw_values")))
     
     
 # Grab Currrent Time After Running the Code for logging of total execution time
@@ -68,6 +68,6 @@ total_time_minutes = total_time // 60
 total_time_hours = total_time // 60
 execution_time = str("%d:%02d:%02d" % (total_time_hours, total_time_minutes, total_time_seconds))
 # Write into log that script has completed
-bf.log_insert('ti_train_model.py', f'Training of model has completed. Total time: {execution_time}')
+bf.log_insert("ti_train_model.py", f"Training of model has completed. Total time: {execution_time}")
     
     
