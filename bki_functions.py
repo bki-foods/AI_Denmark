@@ -22,7 +22,7 @@ def string_to_sql(list_with_values: list) -> str:
     Returned values are encased in '' when returned.
     """
     if len(list_with_values) == 0:
-        return ''
+        return ""
     else:
         return "'{}'".format("','".join(list_with_values))
 
@@ -38,9 +38,9 @@ def get_exit_check(value: int):
 # Write into dbo.log
 def log_insert(event: str, note: str):
     """Inserts a record into BKI_Datastore dbo.log with event and note."""
-    dict_log = {'Note': note
-                ,'Event': event}
-    pd.DataFrame(data=dict_log, index=[0]).to_sql('Log', con=bsi.engine_ds, schema='dbo', if_exists='append', index=False)
+    dict_log = {"Note": note
+                ,"Event": event}
+    pd.DataFrame(data=dict_log, index=[0]).to_sql("Log", con=bsi.engine_ds, schema="dbo", if_exists="append", index=False)
 
 # Write dataframe into Excel sheet
 def insert_dataframe_into_excel (engine, dataframe, sheetname: str, include_index: bool = False):
@@ -59,7 +59,7 @@ def insert_dataframe_into_excel (engine, dataframe, sheetname: str, include_inde
     dataframe.to_excel(engine, sheet_name=sheetname, index=include_index)
 
 # Update BKI_Datastore with input ID with a new status
-def update_request_log(request_id: int, status: int, filename: str = '', filepath: str = ''):
+def update_request_log(request_id: int, status: int, filename: str = "", filepath: str = ""):
     """
     Updates request log with input status, and possibly filname and -path.
     Parameters
@@ -88,7 +88,7 @@ def insert_into_email_log(dictionary: dict):
         Dictionary containing keys matching field names in table in the database.
     """
     df = pd.DataFrame(data= dictionary ,index= [0])
-    df.to_sql('Email_log', con=bsi.engine_ds, schema='cof', if_exists='append', index=False)
+    df.to_sql("Email_log", con=bsi.engine_ds, schema="cof", if_exists="append", index=False)
 
 # Compare two dataframes with specified columns and see if dataframe 2 is missing any values compared to dataframe 1
 def get_list_of_missing_values(df_total:pd.DataFrame(), total_column_name:str, df_compare:pd.DataFrame(), compare_column_name:str) -> list:
@@ -117,7 +117,34 @@ def get_list_of_missing_values(df_total:pd.DataFrame(), total_column_name:str, d
     missing_values = list(set(total_values_list) - set(compare_values_list))
     return missing_values
 
-
+# Get a calculated price of a given input recipe
+def get_recipe_calculated_standard_cost(recipe:str) -> float:
+    """
+    Returns a calculated price for the input recipe.
+    The price for the recipe is calculated using the standard cost price for the green coffees in the recipe.
+    The green coffee prices that are used are the 1010 prices, to ensure a comparable price with recipe suggestions from NN.
+    """
+    query = f""" WITH BOM_VER AS (
+                SELECT TOP 1 PBV.[Production BOM No_] ,[Version Code]
+                FROM [dbo].[BKI foods a_s$Production BOM Version] AS PBV
+                INNER JOIN [dbo].[BKI foods a_s$Item] AS I
+                	ON PBV.[Production BOM No_] = I.[Production BOM No_]
+                WHERE PBV.[Status] = 1 AND I.[No_] = '{recipe}'
+                ORDER BY PBV.[Starting Date] DESC )
+                SELECT
+                	ISNULL(SUM(PBL.[Quantity] * (1 + PBL.[Scrap _] / 100) * I2.[Standard Cost]),0) AS [Price]
+                FROM [dbo].[BKI foods a_s$Production BOM Line] AS PBL
+                INNER JOIN BOM_VER
+                	ON PBL.[Production BOM No_] = BOM_VER.[Production BOM No_]
+                	AND PBL.[Version Code] = BOM_VER.[Version Code]
+                INNER JOIN [dbo].[BKI foods a_s$Item] AS I
+                	ON PBL.[No_] = I.[No_]
+                INNER JOIN [dbo].[BKI foods a_s$Item] AS I2
+                	ON '1010' + RIGHT(I.[No_],4) = I2.[No_]
+                WHERE I.[Item Category Code] = 'RÅKAFFE' """
+    df = pd.read_sql(query, bsi.con_nav)
+   
+    return float(df["Price"].iloc[0])
 
 # Get information from coffee contracts from Navision
 def get_coffee_contracts() -> pd.DataFrame():
@@ -191,7 +218,7 @@ def get_gc_grades() -> pd.DataFrame():
             	AND COALESCE(S.[Smag_Syre],S.[Smag_Krop],S.[Smag_Aroma],S.[Smag_Eftersmag],S.[Smag_Robusta]) IS NOT NULL
             AND S.[Status] = 1 """
     df = pd.read_sql(query, bsi.con_ds)
-    df['Kontraktnummer'] = df['Kontraktnummer'].str.upper() # Upper case to prevent join issues
+    df["Kontraktnummer"] = df["Kontraktnummer"].str.upper() # Upper case to prevent join issues
     return df
 
 # Get all records for grades given to finished goods
@@ -227,7 +254,7 @@ def get_nav_order_related() -> pd.DataFrame():
     """
     # Get dataframe with orders given grades, convert til liste and string used for SQL query.
     df_orders = get_finished_goods_grades()
-    graded_orders_list = df_orders['Ordrenummer'].unique().tolist()
+    graded_orders_list = df_orders["Ordrenummer"].unique().tolist()
     po_sql_string = string_to_sql(graded_orders_list)
     # Get related orders from Navision
     query_nav_order_related = f""" SELECT [Prod_ Order No_] AS [Ordre]
@@ -246,9 +273,9 @@ def get_probat_orders_related() -> pd.DataFrame():
     """
     # Get a list of orders which do not have valid relationships defined in Navision
     orders_to_search = get_list_of_missing_values(get_finished_goods_grades()
-                                                  ,'Ordrenummer'
+                                                  ,"Ordrenummer"
                                                   ,get_nav_order_related()
-                                                  ,'Ordre')
+                                                  ,"Ordre")
     # Convert list to a string valid for SQL query
     sql_search_string = string_to_sql(orders_to_search)
 
@@ -292,12 +319,12 @@ def get_order_relationships() -> pd.DataFrame():
     df_with_roasting_orders = pd.merge(
                                 df_orders_total
                                 ,df_orders
-                                ,left_on='Relateret ordre'
-                                ,right_on='ORDER_NAME'
-                                ,how='left')
+                                ,left_on="Relateret ordre"
+                                ,right_on="ORDER_NAME"
+                                ,how="left")
     # Prepare final dataframe
     df_orders_final = pd.DataFrame()
-    df_orders_final[['Ordre','Relateret ordre']] = df_with_roasting_orders[['Ordre','S_ORDER_NAME']]
+    df_orders_final[["Ordre","Relateret ordre"]] = df_with_roasting_orders[["Ordre","S_ORDER_NAME"]]
     df_orders_final.dropna(inplace=True)
 
     return df_orders_final
@@ -310,7 +337,7 @@ def get_roaster_input() -> pd.DataFrame():
     """
     # Get dataframe, list and concatenated string for sql with relevant order numbers
     df_orders = get_order_relationships()
-    orders_list = df_orders['Relateret ordre'].unique().tolist()
+    orders_list = df_orders["Relateret ordre"].unique().tolist()
     orders_sql = string_to_sql(orders_list)
     # Query Probat for records
     query = f""" SELECT	[RECORDING_DATE] AS [Dato] ,[DESTINATION] AS [Rister]
@@ -321,7 +348,7 @@ def get_roaster_input() -> pd.DataFrame():
                 FROM [dbo].[PRO_EXP_ORDER_LOAD_R]
                 WHERE [ORDER_NAME] IN ({orders_sql}) """
     df = pd.read_sql(query, bsi.con_probat)
-    df['Kontraktnummer'] = df['Kontraktnummer'].str.upper() # Upper case to prevent join issues
+    df["Kontraktnummer"] = df["Kontraktnummer"].str.upper() # Upper case to prevent join issues
     return df
 
 
@@ -332,7 +359,7 @@ def get_roaster_output() -> pd.DataFrame():
     """
     # Get dataframe, list and concatenated string for sql with relevant order numbers
     df_orders = get_order_relationships()
-    orders_list = df_orders['Relateret ordre'].unique().tolist()
+    orders_list = df_orders["Relateret ordre"].unique().tolist()
     orders_sql = string_to_sql(orders_list)
     # Query Probat for records
     query = f""" WITH G AS (
@@ -377,7 +404,7 @@ def get_ds_blend_request() -> pd.DataFrame():
     Returns columns from database with same names as they exist in source table.
     If no non-started or non-completed records exists, sys.exit() is called to terminate script.
     """
-    query = 'SELECT TOP 1 * FROM [cof].[Receptforslag_log] WHERE [Status] = 0'
+    query = "SELECT TOP 1 * FROM [cof].[Receptforslag_log] WHERE [Status] = 0"
     df = pd.read_sql(query, bsi.con_ds)
     # Call function to exit script if no data exists from query
     get_exit_check(len(df))
@@ -527,42 +554,42 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
         ,get_silos_available_quantities()
         ,get_warehouse_available_quantities()
         ])
-    df['Modtagelse'].fillna(value='', inplace=True)
-    df['Kontraktnummer'] = df['Kontraktnummer'].str.upper() # Upper case to prevent join issues
+    df["Modtagelse"].fillna(value="", inplace=True)
+    df["Kontraktnummer"] = df["Kontraktnummer"].str.upper() # Upper case to prevent join issues
     # Map dictionary to dataframe and filter dataframe on locations and min. available amounts
-    df['Lokation_filter'] = df['Lokation'].map(location_filter)
-    df = df.loc[(df['Lokation_filter'] == 1) & (df['Beholdning'] >= min_quantity)]
+    df["Lokation_filter"] = df["Lokation"].map(location_filter)
+    df = df.loc[(df["Lokation_filter"] == 1) & (df["Beholdning"] >= min_quantity)]
 
     # Read green coffee grades into dataframe and calculate mean values
     df_grades = get_gc_grades()
-    df_grades['Modtagelse'].fillna(value='', inplace=True)
+    df_grades["Modtagelse"].fillna(value="", inplace=True)
     # Calculate mean value grouped by kontrakt and modtagelse, merge with original dataframe
-    df_grades_del = df_grades.groupby(['Kontraktnummer','Modtagelse'], dropna=False).agg(
-        {'Syre': 'mean'
-        ,'Krop': 'mean'
-        ,'Aroma': 'mean'
-        ,'Eftersmag': 'mean'
-        ,'Robusta': 'mean'
+    df_grades_del = df_grades.groupby(["Kontraktnummer","Modtagelse"], dropna=False).agg(
+        {"Syre": "mean"
+        ,"Krop": "mean"
+        ,"Aroma": "mean"
+        ,"Eftersmag": "mean"
+        ,"Robusta": "mean"
         }).reset_index()
     df = pd.merge(
         left= df
         ,right= df_grades_del
-        ,how= 'left'
-        ,on= ['Kontraktnummer','Modtagelse']
+        ,how= "left"
+        ,on= ["Kontraktnummer","Modtagelse"]
         )
     # Calculate mean value grouped by kontrakt, merge with original dataframe
-    df_grades_con = df_grades.groupby(['Kontraktnummer'], dropna=False).agg(
-        {'Syre': 'mean'
-        ,'Krop': 'mean'
-        ,'Aroma': 'mean'
-        ,'Eftersmag': 'mean'
-        ,'Robusta': 'mean'
+    df_grades_con = df_grades.groupby(["Kontraktnummer"], dropna=False).agg(
+        {"Syre": "mean"
+        ,"Krop": "mean"
+        ,"Aroma": "mean"
+        ,"Eftersmag": "mean"
+        ,"Robusta": "mean"
         }).reset_index()
     df = pd.merge(
         left= df
         ,right= df_grades_con
-        ,how= 'left'
-        ,on= 'Kontraktnummer'
+        ,how= "left"
+        ,on= "Kontraktnummer"
         )
     # Get target values from Navision and add to dataframe
     df_grades_targets = get_target_cupping_profiles()
@@ -572,45 +599,45 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
         ,how = 'left'
         ,on= 'Kontraktnummer')
     # Get available grades into a single column
-    df['Syre'] = df['Syre_x'].combine_first(df['Syre_y']).combine_first(df['Syre'])
-    df['Aroma'] = df['Aroma_x'].combine_first(df['Aroma_y']).combine_first(df['Aroma'])
-    df['Krop'] = df['Krop_x'].combine_first(df['Krop_y']).combine_first(df['Krop'])
-    df['Eftersmag'] = df['Eftersmag_x'].combine_first(df['Eftersmag_y']).combine_first(df['Eftersmag'])
-    df['Robusta'] = df['Robusta_x'].combine_first(df['Robusta_y']).combine_first(df['Robusta'])
+    df["Syre"] = df["Syre_x"].combine_first(df["Syre_y"]).combine_first(df["Syre"])
+    df["Aroma"] = df["Aroma_x"].combine_first(df["Aroma_y"]).combine_first(df["Aroma"])
+    df["Krop"] = df["Krop_x"].combine_first(df["Krop_y"]).combine_first(df["Krop"])
+    df["Eftersmag"] = df["Eftersmag_x"].combine_first(df["Eftersmag_y"]).combine_first(df["Eftersmag"])
+    df["Robusta"] = df["Robusta_x"].combine_first(df["Robusta_y"]).combine_first(df["Robusta"])
     # Add information regarding certifications of each contract
     df_contract_info = get_coffee_contracts()
     df = pd.merge(
         left = df
         ,right = df_contract_info
-        ,how = 'left'
-        ,on= 'Kontraktnummer')
+        ,how = "left"
+        ,on= "Kontraktnummer")
     # Filter dataframe down to relevant rows for certifications. If include == False, only then filter
-    if certifications['Fairtrade'] == 0:
-        df = df.loc[(df['Fairtrade'] == 0)]
-    if certifications['Økologi'] == 0:
-        df = df.loc[(df['Økologi'] == 0)]
-    if certifications['Rainforest'] == 0:
-        df = df.loc[(df['Rainforest'] == 0)]
-    if certifications['Konventionel'] == 0:
-        df = df.loc[(df['Konventionel'] == 0)]
+    if certifications["Fairtrade"] == 0:
+        df = df.loc[(df["Fairtrade"] == 0)]
+    if certifications["Økologi"] == 0:
+        df = df.loc[(df["Økologi"] == 0)]
+    if certifications["Rainforest"] == 0:
+        df = df.loc[(df["Rainforest"] == 0)]
+    if certifications["Konventionel"] == 0:
+        df = df.loc[(df["Konventionel"] == 0)]
     # Remove or add Arabica/Robusta if chosen
-    if certifications['Sammensætning'] == 'Ren Arabica':
-        df = df.loc[(df['Kaffetype'] == 'A')]
-    if certifications['Sammensætning'] == 'Ren Robusta':
-        df = df.loc[(df['Kaffetype'] == 'R')]
+    if certifications["Sammensætning"] == "Ren Arabica":
+        df = df.loc[(df["Kaffetype"] == "A")]
+    if certifications["Sammensætning"] == "Ren Robusta":
+        df = df.loc[(df["Kaffetype"] == "R")]
     # Remove specific items that should never be included, defined by item numbers.
-    customer_item_numbers = ['10104210','10104211','10104212','10104213'    # Sofiero
-                             ,'10104310','10104311','10104312'              # Wilson
-                             ,'10104240','10104241','10104242','10104243'   # SLOW
-                             ,'10104244','10104245'
-                             ,'10104110','10104111','10104112','10104113'   # Kontra
-                             ,'10104116']
-    df = df[~df['Sort'].isin(customer_item_numbers)]
+    customer_item_numbers = ["10104210","10104211","10104212","10104213"    # Sofiero
+                             ,"10104310","10104311","10104312"              # Wilson
+                             ,"10104240","10104241","10104242","10104243"   # SLOW
+                             ,"10104244","10104245"
+                             ,"10104110","10104111","10104112","10104113"   # Kontra
+                             ,"10104116"]
+    df = df[~df["Sort"].isin(customer_item_numbers)]
     # Remove any unnecesary columns from dataframe | Sofiero, SLOW, Wilson
-    df.drop(['Syre_x','Aroma_x','Krop_x','Eftersmag_x','Robusta_x'
-             ,'Syre_y','Aroma_y','Krop_y','Eftersmag_y','Robusta_y'
-             ,'Lokation_filter', 'Leverandør', 'Høst', 'Høstår', 'Metode'
-             ,'Fairtrade', 'Økologi', 'Rainforest', 'Konventionel', 'Kaffetype']
+    df.drop(["Syre_x","Aroma_x","Krop_x","Eftersmag_x","Robusta_x"
+             ,"Syre_y","Aroma_y","Krop_y","Eftersmag_y","Robusta_y"
+             ,"Lokation_filter","Leverandør","Høst","Høstår","Metode"
+             ,"Fairtrade","Økologi","Rainforest","Konventionel","Kaffetype"]
             ,inplace=True, axis=1)
     return df
 
