@@ -483,6 +483,7 @@ def get_silos_available_quantities() -> pd.DataFrame():
             ,[Modtagelse] ,SUM([Kilo]) AS [Beholdning]
             FROM [dbo].[Newest total inventory]
             WHERE [Placering] = '0000' OR [Placering] LIKE '2__'
+            AND [Varenummer] NOT IN ('10204401','10204403','10204440','10204450','10204970','10204460','10209999')
             GROUP BY [Kontrakt],[Modtagelse] """
     df = pd.read_sql(query, bsi.con_probat)
     return df
@@ -493,6 +494,7 @@ def get_warehouse_available_quantities() -> pd.DataFrame():
             ,[Modtagelse] ,SUM([Kilo]) AS [Beholdning]
             FROM [dbo].[Newest total inventory]
             WHERE [Placering] = 'Warehouse'
+            AND [Varenummer] NOT IN ('10204401','10204403','10204440','10204450','10204970','10204460','10209999')
             GROUP BY [Kontrakt],[Modtagelse] """
     df = pd.read_sql(query, bsi.con_probat)
     return df
