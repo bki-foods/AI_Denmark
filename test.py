@@ -1,139 +1,80 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import pandas as pd
-import numpy as np
-import joblib
-import bki_functions as bf
-import bki_server_information as bsi
-import ti_price_opt as tpo
-
-import shutil
-import os
-import datetime
-
-# =============================================================================
-# # Read request from BKI_Datastore
-# df_request = bf.get_ds_blend_request()
-# df_request['Robusta'].fillna(10, inplace=True)
-# # Add locations to dictionary for later
-# dict_locations = {
-#     'SILOER': df_request['Lager_siloer'].iloc[0]
-#     ,'WAREHOUSE': df_request['Lager_warehouse'].iloc[0]
-#     ,'AARHUSHAVN': df_request['Lager_havn'].iloc[0]
-#     ,'SPOT': df_request['Lager_spot'].iloc[0]
-#     ,'AFLOAT': df_request['Lager_afloat'].iloc[0]
-#     ,'UDLAND': df_request['Lager_udland'].iloc[0]}
-# 
-# # Minimum available amount of coffee for an item to be included
-# min_quantity = df_request['Minimum_lager'].iloc[0]
-# 
-# # Different types of certifications
-# dict_certifications = {
-#     'Sammensætning': df_request['Sammensætning'].iloc[0]
-#     ,'Fairtrade': df_request['Inkluder_fairtrade'].iloc[0]
-#     ,'Økologi': df_request['Inkluder_økologi'].iloc[0]
-#     ,'Rainforest': df_request['Inkluder_rainforest'].iloc[0]
-#     ,'Konventionel': df_request['Inkluder_konventionel'].iloc[0]
-#     }
-# 
-# # Get all available quantities available for use in production.
-# df_available_coffee = bf.get_all_available_quantities(
-#     dict_locations
-#     ,min_quantity
-#     ,dict_certifications)
-# column_order_available_coffee = ['Kontraktnummer','Modtagelse','Lokation','Beholdning'
-#                                  ,'Syre','Aroma','Krop','Eftersmag','Robusta','Differentiale'
-#                                  ,'Sort','Varenavn','Screensize','Oprindelsesland','Mærkningsordning']
-# df_available_coffee = df_available_coffee[column_order_available_coffee]
-# 
-# 
-# # # BKI function to predict a taste profile from a dataframe input
-# def predict_taste_profile(individual, flavor_model, candidates, color, MAX_C=7):
-#     D = len(candidates[0, :])
-#     size = len(individual)
-#     components = [individual[i][0] for i in range(size) if individual[i][0] != -1]
-#     proportions = [individual[i][1] for i in range(size) if individual[i][0] != -1]
-#     num_components = len(components)
-# 
-#     model_input = np.array([])
-#     for c, p in zip(components, proportions):
-#         model_input = np.concatenate((model_input, candidates[c, :]))
-#         model_input = np.concatenate((model_input, [p]))
-#     model_input = np.concatenate((model_input, [0] * ((D + 1) * (size - num_components))))
-#     model_input = np.concatenate((model_input, [color]))
-# 
-#     # model_output = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1))) # Dette er hvad vi "tror" input individual vil smage som - Let til tests
-#     # model_output = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1)) * 2) / 2 # Round to .5 values
-#     model_output = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1)) * 4) / 4 # Round to .25 values
-#     # Evt. gang ovenstående med 2 --> round --> divider med 2 for at få halve karakterer
-#     return model_output
-# 
-# 
-# # Dette er en liste over individuals: for i in enumerate(hall_of_fame) - hall_of_fame[i] -> 'individual'
-# hall_of_fame = [ 
-# 	[(68, 0.16),(70, 0.15),(48, 0.1),(52, 0.53),(31, 0.06),(-1, 0),(-1, 0)]
-# 	,[(99, 0.06), (69, 0.06), (70, 0.25), (52, 0.57), (31, 0.06), (-1, 0), (-1, 0)]
-# 	,[(99, 0.06), (68, 0.13), (70, 0.46), (93, 0.21), (31, 0.14), (-1, 0), (-1, 0)]
-# 	,[(68, 0.18), (52, 0.06), (85, 0.4), (93, 0.23), (31, 0.13), (-1, 0), (-1, 0)]
-# 	,[(100, 0.11), (75, 0.06), (78, 0.36), (84, 0.41), (31, 0.06), (-1, 0), (-1, 0)]
-# 	,[(70, 0.22), (52, 0.06), (85, 0.32), (93, 0.26), (31, 0.14), (-1, 0), (-1, 0)]
-# 	,[(99, 0.06), (68, 0.16), (70, 0.08), (52, 0.64), (31, 0.06), (-1, 0), (-1, 0)]
-# 	,[(68, 0.06), (38, 0.06), (70, 0.3), (52, 0.32), (31, 0.26), (-1, 0), (-1, 0)]
-# 	,[(99, 0.06), (69, 0.06), (70, 0.42), (93, 0.32), (31, 0.14), (-1, 0), (-1, 0)]
-# 	,[(100, 0.08), (70, 0.31), (52, 0.06), (85, 0.28), (31, 0.27), (-1, 0), (-1, 0)]
-# 	,[(66, 0.06), (69, 0.06), (70, 0.14), (52, 0.64), (31, 0.1), (-1, 0), (-1, 0)]
-# 	,[(3, 0.06), (68, 0.2), (70, 0.11), (30, 0.48), (31, 0.15), (-1, 0), (-1, 0)]
-# 	,[(66, 0.21), (69, 0.06), (70, 0.38), (93, 0.29), (31, 0.06), (-1, 0), (-1, 0)]
-# 	,[(66, 0.26), (68, 0.06), (70, 0.26), (93, 0.29), (31, 0.13), (-1, 0), (-1, 0)]
-# 	,[(66, 0.12), (68, 0.19), (70, 0.16), (52, 0.39), (31, 0.14), (-1, 0), (-1, 0)]
-# 	,[(42, 0.42), (77, 0.08), (48, 0.18), (30, 0.26), (31, 0.06), (-1, 0), (-1, 0)]
-# 	,[(73, 0.06), (10, 0.08), (76, 0.24), (52, 0.54), (91, 0.08), (-1, 0), (-1, 0)]
-# 	,[(3, 0.06), (68, 0.2), (54, 0.33), (30, 0.19), (31, 0.22), (-1, 0), (-1, 0)]
-# 	,[(66, 0.13), (70, 0.29), (79, 0.45), (54, 0.07), (31, 0.06), (-1, 0), (-1, 0)]
-# 	,[(99, 0.26), (73, 0.21), (77, 0.06), (52, 0.21), (26, 0.26), (-1, 0), (-1, 0)]]
-# # Den trænede model til prediktion --> 'flavor_model'
-# flavor_predictor = joblib.load('bki_flavor_predictor_no_robusta.sav') 
-# # Farven på recepten vil skal ramme
-# color = 110
-# # Empty list with flavor profiles to be filled in loop below
-# predicted_flavor_profiles = []
-# # Loop over each blend suggestion to predict flavor
-# # for blend in hall_of_fame:
-# #     blend_component_flavors = []
-# #     for component_line in blend:
-# #         if not component_line[0] == -1:
-# #             flavors = df_available_coffee[['Syre','Aroma','Krop','Eftersmag']].iloc[component_line[0]].tolist()
-# #             blend_component_flavors += [flavors]
-# #         else:
-# #             blend_component_flavors += [[-1,-1,-1,-1]]
-# #     predicted_flavor = predict_taste_profile(
-# #         individual = blend
-# #         ,flavor_model = flavor_predictor
-# #         ,candidates = blend_component_flavors
-# #         ,color = color)
-# #     print(predicted_flavor)
-# =============================================================================
+import statistics
 
 
-# import the builtin time module
-import time
 
-# Grab Currrent Time Before Running the Code
-start_time = time.time()
+ind1_collection =[  [(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
+                  ,[(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
+                  ,[(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
+                  ,[(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
+                  ,[(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
+                  ,[(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
+                  ,[(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
+                  ,[(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
+                  ,[(40, 0.16), (41, 0.06), (52, 0.38), (26, 0.4), (-1, 0), (-1, 0), (-1, 0)]
+                  ,[(40, 0.16), (41, 0.06), (52, 0.38), (26, 0.4), (-1, 0), (-1, 0), (-1, 0)]
+                  ,[(40, 0.16), (41, 0.06), (52, 0.38), (26, 0.4), (-1, 0), (-1, 0), (-1, 0)]
+                  ,[(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]]
+ind2_collection = [ [(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
+                   ,[(3, 0.06), (38, 0.18), (40, 0.6), (18, 0.07), (21, 0.09), (-1, 0), (-1, 0)]
+                   ,[(16, 0.22), (18, 0.58), (52, 0.06), (21, 0.06), (54, 0.08), (-1, 0), (-1, 0)]
+                   ,[(19, 0.66), (44, 0.12), (16, 0.08), (35, 0.07), (40, 0.07), (-1, 0), (-1, 0)]
+                   ,[(8, 0.07), (16, 0.24), (49, 0.07), (19, 0.07), (31, 0.55), (-1, 0), (-1, 0)]
+                   ,[(40, 0.25), (10, 0.34), (25, 0.06), (26, 0.29), (27, 0.06), (-1, 0), (-1, 0)]
+                   ,[(35, 0.21), (6, 0.44), (7, 0.06), (12, 0.23), (54, 0.06), (-1, 0), (-1, 0)]
+                   ,[(7, 0.07), (8, 0.09), (40, 0.11), (49, 0.37), (22, 0.36), (-1, 0), (-1, 0)]
+                   ,[(50, 0.06), (57, 0.28), (26, 0.08), (27, 0.51), (30, 0.07), (-1, 0), (-1, 0)]
+                   ,[(37, 0.16), (15, 0.11), (16, 0.2), (17, 0.14), (31, 0.39), (-1, 0), (-1, 0)]
+                   ,[(37, 0.06), (6, 0.12), (48, 0.28), (53, 0.21), (31, 0.33), (-1, 0), (-1, 0)]
+                   ,[(9, 0.16), (13, 0.2), (15, 0.31), (21, 0.17), (31, 0.16), (-1, 0), (-1, 0)]]
 
-for i in range(100000000):
-    pass
+no_collections = range(len(ind1_collection))
 
-# Grab Currrent Time After Running the Code
-end = time.time()
+ind1 = [(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
+ind2 = [(9, 0.16), (13, 0.2), (15, 0.31), (21, 0.17), (31, 0.16), (-1, 0), (-1, 0)]
 
-#Subtract Start Time from The End Time
-total_time_seconds = end - start
-total_time_minutes = total_time_seconds // 60
-total_time_hours = total_time_minutes // 60
 
-execution_time = str("%d:%02d:%02d" % (total_time_hours, total_time_minutes, total_time_seconds))
+def equal_blends(ind1, ind2):
+    #TODO: Blends er identiske hvis de indeholder de samme kontrakter, uagtet proportionerne
+    comp1 = [ind1[i][0] for i in range(len(ind1)) if ind1[i][0] != -1]
+    comp2 = [ind2[i][0] for i in range(len(ind2)) if ind2[i][0] != -1]
+    return set(comp1) == set(comp2)
+
+def blends_too_equal(blend1, blend2) -> bool:
+    """
+    Compares two proposed blends of coffees. If they do not contain exactly the same components,
+    they are deemed different. If they contain the exact same components, they are deemed different enough
+    if any of the ABS differences in proportions are >= 0.1.
+    Returns bool
+    """
+    
+    # Get list of components in each blend, -1 to remove placeholder values
+    blend_1_components = [blend1[i][0] for i in range(len(blend1)) if blend1[i][0] != -1]
+    blend_2_components = [blend2[i][0] for i in range(len(blend2)) if blend2[i][0] != -1]
+    # Do blends contain same items. If not they are different already
+    blends_too_equal = set(blend_1_components) == set(blend_2_components)
+    # If both blends contain same items, compare proportions
+    if blends_too_equal:
+        # Get lists of proportions for each blend
+        blend_1_proportions = [blend1[i][1]  for i in range(len(blend1)) if blend1[i][0] != -1]
+        blend_2_proportions = [blend2[i][1]  for i in range(len(blend2)) if blend2[i][0] != -1]
+        # Get the ABS difference between the blends. Round to prevent issues with floats
+        blends_differences = [round(abs(b1 - b2),2) for b1, b2 in zip(blend_1_proportions, blend_2_proportions)]
+        # # Blends are different enough if the mean ABS change is >= 0.1 across components
+        # blends_different_enough = ( sum(blends_differences) / len(blend_1_components) ) >= 0.1
+        # Blends are different enough if any component has had its proportion changed by 0.1 or more
+        # blends_too_equal = not any(diff >= 0.1 for diff in blends_differences)
+        blends_too_equal = statistics.mean(blends_differences) < 0.05
+    return blends_too_equal
+
+
+for i in no_collections:
+    print("i: ",i, "\torg: " ,equal_blends(ind1_collection[i], ind2_collection[i]), "\tnew: ", blends_too_equal(ind1_collection[i], ind2_collection[i]))
+
+
+# Blend 0 skal være True i new, blend 11 skal være true i org, false i NEW
 
 
 
@@ -142,10 +83,3 @@ execution_time = str("%d:%02d:%02d" % (total_time_hours, total_time_minutes, tot
 
 
 
-
-
-
-
-
-
-        
