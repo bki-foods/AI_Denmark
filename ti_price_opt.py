@@ -280,8 +280,8 @@ def blends_too_equal(blend1, blend2) -> bool:
     """
     Compares two proposed blends of coffees. If they do not contain exactly the same components,
     they are deemed different. If they contain the exact same components, they are deemed different enough
-    if any of the ABS differences in proportions are >= 0.1.
-    Returns bool
+    if the mean ABS differences in proportions are >= 0.1.
+    Returns bool | True if blends are too equal
     """
     
     # Get list of components in each blend, -1 to remove placeholder values
