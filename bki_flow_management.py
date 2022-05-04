@@ -11,7 +11,6 @@ import ti_price_opt as tpo
 
 # Read request from BKI_Datastore
 df_request = bf.get_ds_blend_request()
-df_request["Robusta"].fillna(10, inplace=True) # Modellen skal bruge en værdi for robusta parameteren
 # Create necessary request variables for later use
 request_id = df_request["Id"].iloc[0]
 request_recipient = df_request["Bruger_email"].iloc[0]
@@ -38,6 +37,8 @@ dict_locations = {
 
 # Minimum available amount of coffee for an item to be included
 min_quantity = df_request["Minimum_lager"].iloc[0]
+# Calculated price for target recipe if such is defined
+requested_recipe_price = bf.get_recipe_calculated_standard_cost(df_request["Receptnummer"].iloc[0])
 
 # Different types of certifications
 dict_certifications = {
@@ -45,8 +46,7 @@ dict_certifications = {
     ,"Fairtrade": df_request["Inkluder_fairtrade"].iloc[0]
     ,"Økologi": df_request["Inkluder_økologi"].iloc[0]
     ,"Rainforest": df_request["Inkluder_rainforest"].iloc[0]
-    ,"Konventionel": df_request["Inkluder_konventionel"].iloc[0]
-    }
+    ,"Konventionel": df_request["Inkluder_konventionel"].iloc[0]}
 
 # Get all available quantities available for use in production.
 df_available_coffee = bf.get_all_available_quantities(
@@ -71,11 +71,13 @@ df_available_coffee["Kontrakt_id"] = df_available_coffee.index
 # df_available_coffee["Differentiale"] = 0.0
 
 if predict_robusta:
-    flavors_list = df_available_coffee[["Syre","Aroma","Krop","Eftersmag","Robusta"]].to_numpy()
+    flavor_columns = ["Syre","Aroma","Krop","Eftersmag","Robusta"]
+    flavors_list = df_available_coffee[flavor_columns].to_numpy()
     target_flavor_list = df_request[["Syre","Aroma","Krop","Eftersmag","Robusta"]].to_numpy()[0]
     model_name = "flavor_predictor_robusta.sav"
 else:
-    flavors_list = df_available_coffee[["Syre","Aroma","Krop","Eftersmag"]].to_numpy()
+    flavor_columns = ["Syre","Aroma","Krop","Eftersmag"]
+    flavors_list = df_available_coffee[flavor_columns].to_numpy()
     target_flavor_list = df_request[["Syre","Aroma","Krop","Eftersmag"]].to_numpy()[0]
     model_name = "flavor_predictor_no_robusta.sav"
 # Lists indifferent to whether or not robusta is to be predicted or not
@@ -148,7 +150,22 @@ bf.insert_dataframe_into_excel(
 df_blend_suggestions_summarized = df_blend_suggestions.groupby(["Blend_nr"],dropna=False) \
                                                       .agg({"Beregnet pris": 'sum'}) \
                                                       .reset_index()
+# df_blend_suggestions_summarized[flavor_columns] = ''
+# Get a list over number of blends that needs to be iterated over
 blend_no_iterator = df_blend_suggestions_summarized["Blend_nr"].to_list()
+# Create lists for flavors
+predicted_flavors_syre = []
+predicted_flavors_aroma = []
+predicted_flavors_krop = []
+predicted_flavors_eftersmag = []
+predicted_flavors_robusta = []
+# =============================================================================
+# # Fitness values # TODO - TEMP
+# predicted_fitness = []
+# predicted_flavor_bound = []
+# predicted_cost = []
+# =============================================================================
+# Iterate over each blend and append flavor to lists
 for blend_no in blend_no_iterator:
     # Iterate over integers.. cleanup...
     blend_no = int(blend_no)
@@ -157,10 +174,53 @@ for blend_no in blend_no_iterator:
     hof_blend = blend_suggestions_hof[hof_blend_no_index]
     # Predict flavor
     predicted_flavors = tpo.taste_pred(hof_blend, flavor_predictor, flavors_list, request_farve)
-    print(predicted_flavors)
+    # Add each flavor to each own list
+    predicted_flavors_syre += [predicted_flavors[0][0]]
+    predicted_flavors_aroma += [predicted_flavors[0][1]]
+    predicted_flavors_krop += [predicted_flavors[0][2]]
+    predicted_flavors_eftersmag += [predicted_flavors[0][3]]
+    if predict_robusta:
+        predicted_flavors_robusta += [predicted_flavors[0][4]]
+    
+# =============================================================================
+#     # Get fitness values #TODO Probably a temporary addition to finetune weights of cost vs flavour
+#     blend_fitness, flavor_bound, cost = tpo.pred_fitness(
+#         hof_blend
+#         ,contract_prices_list
+#         ,flavor_predictor
+#         ,flavors_list
+#         ,target_flavor_list
+#         ,request_farve)
+#     predicted_fitness += [blend_fitness.tolist()[0]]
+#     predicted_flavor_bound += [flavor_bound]
+#     predicted_cost += [cost.tolist()[0]]
+# =============================================================================
 
 
 
+# Add flavors to dataframe
+df_blend_suggestions_summarized["Syre"] = predicted_flavors_syre
+df_blend_suggestions_summarized["Aroma"] = predicted_flavors_aroma
+df_blend_suggestions_summarized["Krop"] = predicted_flavors_krop
+df_blend_suggestions_summarized["Eftersmag"] = predicted_flavors_eftersmag
+if predict_robusta:
+    df_blend_suggestions_summarized["Robusta"] = predicted_flavors_robusta
+# =============================================================================
+# # Add fitness values to dataframe #TODO probably temporary
+# df_blend_suggestions_summarized["Fitness"] = predicted_fitness
+# df_blend_suggestions_summarized["Flavor_bound"] = predicted_flavor_bound
+# df_blend_suggestions_summarized["Cost"] = predicted_cost
+# =============================================================================
+# Calculate whether or not a suggested recipe indicates any savings in cost
+if requested_recipe_price:
+    df_blend_suggestions_summarized["Pris diff"] = df_blend_suggestions_summarized["Beregnet pris"] - requested_recipe_price
+else:
+    df_blend_suggestions_summarized["Pris diff"] = None
+# Insert final dataframe into workbook
+bf.insert_dataframe_into_excel(
+    excel_writer
+    ,df_blend_suggestions_summarized
+    ,"Blend forslag opsummeret")
 
 # Green coffee input, insert into workbook
 bf.insert_dataframe_into_excel(
@@ -181,6 +241,8 @@ columns_include_exclude = ["Inkluder_konventionel","Inkluder_fairtrade","Inklude
                            ,"Lager_spot","Lager_afloat","Lager_udland"]
 for col in columns_include_exclude:
     df_request[col] = df_request[col].map(dict_include_exclude)
+# Add a column with calculated recipe price
+df_request["Beregnet pris"] = requested_recipe_price
 # Transpose and change headers
 df_request = df_request.transpose().reset_index()
 df_request.columns = ["Oplysning","Værdi"]
