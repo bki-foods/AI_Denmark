@@ -34,12 +34,12 @@ def get_blend_permutations(contracts: list, N_components: int) -> list:
     # The more components in blend the fewer contracts it's possible to use due to massive amounts of possible combinations.
     contracts_possible = {
          1: list(range(len_contracts if len_contracts < 500 else 500))
-        ,2: list(range(len_contracts if len_contracts < 500 else 500))
-        ,3: list(range(len_contracts if len_contracts < 100 else 100))
-        ,4: list(range(len_contracts if len_contracts < 30 else 30))
-        ,5: list(range(len_contracts if len_contracts < 15 else 15))
-        ,6: list(range(len_contracts if len_contracts < 11 else 11))
-        ,7: list(range(len_contracts if len_contracts < 9 else 9))}
+        ,2: list(range(len_contracts if len_contracts < 75 else 75))
+        ,3: list(range(len_contracts if len_contracts < 13 else 13))
+        ,4: list(range(len_contracts if len_contracts < 7 else 7))
+        ,5: list(range(len_contracts if len_contracts < 6 else 6))
+        ,6: list(range(len_contracts if len_contracts < 6 else 6))
+        ,7: list(range(len_contracts if len_contracts < 6 else 7))}
     
 
     # Combine proportions and contracts with contracts and proportions for single component blends
@@ -58,6 +58,23 @@ def get_blend_permutations(contracts: list, N_components: int) -> list:
     del blends,blends_proportions
     
     return blends_final
+
+
+
+
+contracts = [40,41,53,30,13,23,32,45,16,49,31,43,7,2,4,11,8,21,26,1,14,20,39,47,35,12,6,9]
+
+
+
+
+# If len(contracts) > max
+
+
+
+
+
+
+
 
 
 
@@ -96,54 +113,35 @@ df_available_coffee = bf.get_all_available_quantities(
 # Remove rows with na, we need values for all parameters. Reset index afterwards
 df_available_coffee.dropna(subset=["Syre","Aroma","Krop","Eftersmag"],inplace=True)
 df_available_coffee.reset_index(drop=True, inplace=True)
-
 contracts_list = df_available_coffee["Kontraktnummer"].to_list()
-
-
 # model for flavor predictor
 model_name = "flavor_predictor_no_robusta.sav"
 flavor_predictor = joblib.load(model_name)
-
-
 flavor_columns = ["Syre","Aroma","Krop","Eftersmag"]
 flavors_list = df_available_coffee[flavor_columns].to_numpy()
 
 x = get_blend_permutations(contracts_list, 2)
 
-test_2 = list([-1] * (7-2)) # 7 minus number of input components in blends
-test_3 = list([0] * (7-2))
-test = []
-for i in range(5):
-    test +=  [[[comp, prop]] for comp,prop in zip(x[i][0], x[i][1])]
 
-    #[list(zip(x[i][0], x[i][1]))]
 
 # =============================================================================
-# a=[1,2,3,4,5,6]
-# b=[7,8,9,10,11,12]
+# # Iterate over each blend and append flavor to lists
+# for i,blend_no in enumerate(test):
+#     pass
+#     # Iterate over integers.. cleanup...
+#     blend_no = int(i)
+#     # Get hof blend by index
+#     hof_blend = x[blend_no]
+#     # Predict flavor
+#     predicted_flavors = tpo.taste_pred(
+#         hof_blend
+#         ,flavor_predictor # OK
+#         ,flavors_list
+#         ,110) # OK
+#     # Add each flavor to each own list
+#     print(predicted_flavors)
 # 
-# x = [[i, j] for i, j in zip(a,b)]
-# 
-# output : [[1, 7], [2, 8], [3, 9], [4, 10], [5, 11], [6, 12]]
 # =============================================================================
-
-
-# Iterate over each blend and append flavor to lists
-for i,blend_no in enumerate(test):
-    pass
-    # Iterate over integers.. cleanup...
-    blend_no = int(i)
-    # Get hof blend by index
-    hof_blend = x[blend_no]
-    # Predict flavor
-    predicted_flavors = tpo.taste_pred(
-        hof_blend
-        ,flavor_predictor # OK
-        ,flavors_list
-        ,110) # OK
-    # Add each flavor to each own list
-    print(predicted_flavors)
-
 
 
 
