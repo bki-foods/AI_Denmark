@@ -81,7 +81,7 @@ else:
     target_flavor_list = df_request[["Syre","Aroma","Krop","Eftersmag"]].to_numpy()[0]
     model_name = "flavor_predictor_no_robusta.sav"
 # Lists indifferent to whether or not robusta is to be predicted or not
-contract_prices_list = df_available_coffee["Standard Cost"].to_numpy().reshape(-1, 1) #df_available_coffee["Differentiale"].to_numpy().reshape(-1, 1)
+contract_prices_list = df_available_coffee["Standard Cost"].to_numpy().reshape(-1, 1)
 contracts_list = df_available_coffee["Kontraktnummer"].to_list()
 
 # model for flavor predictor
@@ -175,12 +175,12 @@ for blend_no in blend_no_iterator:
     # Predict flavor
     predicted_flavors = tpo.taste_pred(hof_blend, flavor_predictor, flavors_list, request_farve)
     # Add each flavor to each own list
-    predicted_flavors_syre += [predicted_flavors[0][0]]
-    predicted_flavors_aroma += [predicted_flavors[0][1]]
-    predicted_flavors_krop += [predicted_flavors[0][2]]
-    predicted_flavors_eftersmag += [predicted_flavors[0][3]]
+    predicted_flavors_syre += [predicted_flavors[0]]
+    predicted_flavors_aroma += [predicted_flavors[1]]
+    predicted_flavors_krop += [predicted_flavors[2]]
+    predicted_flavors_eftersmag += [predicted_flavors[3]]
     if predict_robusta:
-        predicted_flavors_robusta += [predicted_flavors[0][4]]
+        predicted_flavors_robusta += [predicted_flavors[4]]
     
 # =============================================================================
 #     # Get fitness values #TODO Probably a temporary addition to finetune weights of cost vs flavour
