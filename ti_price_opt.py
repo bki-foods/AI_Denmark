@@ -268,7 +268,7 @@ def taste_diff(individual, flavor_model, candidates, target, color, MAX_C=7):
 
 def blend_cost(individual, prices):
     """
-    Calculated the cost of any input blend using the prices also input.
+    Calculated the cost of any input blend using the prices as input.
     """
     size = len(individual)
     components = [individual[i][0] for i in range(size) if individual[i][0] != -1]
@@ -280,8 +280,8 @@ def blend_cost(individual, prices):
 
 def blend_fitness(individual, prices, flavor_model, candidates, target, color, MAX_C=7):
     """
-    Returns a value of arbitrary scale which indicates the proposed blends overall fitness as a candidate.
-    The higher the value the better fitness.
+    Returns a value of a scale 0-1 which indicates the proposed blends overall fitness as a candidate.
+    The closer the value is to 1 the better fitness.
     """
     min_max_scaler = preprocessing.MinMaxScaler()
     prices = min_max_scaler.fit_transform(prices)
