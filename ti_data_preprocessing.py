@@ -15,23 +15,25 @@ def get_blend_grade_data(robusta=True):
     :return X_list, Y_list: A dataset of all the input flavors (X) for every blend produced in the database coupled with
         the flavor of the corresponding output product (Y).
     """
-    # robusta_sorts = (10102120, 10102130, 10102170, 10102180, 10103420)
+    # Define bar_recipes for later use to determine whether to proces on batch or production order level
     bar_recipes = ('10401005','10401207')
-
+    # Get data for coffee contracts
     contracts = bf.get_coffee_contracts()[["Kontraktnummer", "Sort"]]
+    # Get data about recipes
     recipes = bf.get_recipe_information()[["Receptnummer", "Farve sætpunkt"]].rename(columns={"Farve sætpunkt": "Farve"})
+    # Get all potentially relevant roaster input (green coffee consumption)
     roaster_input = bf.get_roaster_input() \
         [["Dato", "Produktionsordre id", "Batch id", "Kontraktnummer", "Modtagelse", "Kilo"]] \
         .rename(columns={"Dato": "Dato_rist",
                          "Kilo": "Kilo_rist_input"}) \
         .dropna()
-
+    # Get all potentially relevant roaster output
     roaster_output = bf.get_roaster_output().dropna(subset=["Ordrenummer"]).astype({"Ordrenummer": np.int64}) \
         [["Produktionsordre id", "Batch id", "Ordrenummer", "Receptnummer", "Kilo"]] \
         .rename(columns={"Kilo": "Kilo_rist_output",
                          "Ordrenummer": "Ordre_rist"}) \
         .dropna()
-
+    # Get grades for the green coffees
     raw_grades = bf.get_gc_grades() \
         [["Dato", "Kontraktnummer", "Modtagelse", "Syre", "Krop", "Aroma", "Eftersmag", "Robusta"]] \
         .rename(columns={"Dato": "Dato_r",
@@ -40,10 +42,11 @@ def get_blend_grade_data(robusta=True):
                          "Aroma": "Aroma_r",
                          "Eftersmag": "Eftersmag_r",
                          "Robusta": "Robusta_r"})
-    raw_grades['Robusta_r'] = raw_grades['Robusta_r'].fillna(10)
+    raw_grades["Robusta_r"] = raw_grades["Robusta_r"].fillna(10)
     raw_grades = raw_grades.dropna(subset=["Kontraktnummer", "Dato_r", "Syre_r", "Krop_r", "Aroma_r",
                                            "Eftersmag_r"])
 
+    # Get grades for the finished products
     product_grades = bf.get_finished_goods_grades() \
         [["Dato", "Ordrenummer", "Syre", "Krop", "Aroma", "Eftersmag", "Robusta"]] \
         .rename(columns={"Dato": "Dato_p",
@@ -53,23 +56,25 @@ def get_blend_grade_data(robusta=True):
                          "Aroma": "Aroma_p",
                          "Eftersmag": "Eftersmag_p",
                          "Robusta": "Robusta_p"})
-    product_grades['Robusta_p'] = product_grades['Robusta_p'].fillna(10)
+    product_grades["Robusta_p"] = product_grades["Robusta_p"].fillna(10)
     product_grades = product_grades.dropna() \
         .drop_duplicates(subset=["Ordre_p", "Syre_p", "Krop_p", "Aroma_p","Eftersmag_p"]) \
-        .astype({'Ordre_p': np.int64})
+        .astype({"Ordre_p": np.int64})
+    
     # Remove robusta columns from dataset if they are not be used for training the model    
     if not robusta:
-        raw_grades.drop('Robusta_r', inplace=True, axis=1)
-        product_grades.drop('Robusta_p', inplace=True, axis=1)
-
+        raw_grades.drop("Robusta_r", inplace=True, axis=1)
+        product_grades.drop("Robusta_p", inplace=True, axis=1)
 
     product_grades["Smagningsid"] = list(range(len(product_grades)))
 
+    # Get data for the relationships between orders
     orders = bf.get_order_relationships() \
         .rename(columns={"Ordre": "Ordre_p",
                          "Relateret ordre": "Ordre_rist"}) \
         .dropna().astype({'Ordre_p': np.int64,'Ordre_rist': np.int64})
 
+    # Merge all relevant tables
     roaster_output = pd.merge(roaster_output, recipes, on="Receptnummer")
 
     res = pd.merge(product_grades, orders, on="Ordre_p")
@@ -79,16 +84,11 @@ def get_blend_grade_data(robusta=True):
     res5 = pd.merge(raw_grades, res4, on=["Kontraktnummer", "Modtagelse"], how="right")
     raw_success = pd.merge(raw_grades, res4, on=["Kontraktnummer", "Modtagelse"], how="inner")
 
-    if robusta: #TODO refactor below -> only robusta flavor is dependant on the if portion
-        missing_raw = res5[res5['Syre_r'].isna()] \
-            .drop(columns=["Dato_r", "Modtagelse", "Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r",
-                           "Robusta_r"]) \
-            .drop_duplicates()
-    else:
-        missing_raw = res5[res5['Syre_r'].isna()] \
-            .drop(columns=["Dato_r", "Modtagelse", "Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r"]) \
-            .drop_duplicates()
+    missing_raw = res5[res5["Syre_r"].isna()] \
+        .drop(columns=["Dato_r", "Modtagelse", "Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r"]) \
+        .drop_duplicates()
 
+    # If no kontrakt/modtagelse has been defined, use data for the last kontrakt graded before the roasting date
     found_raw = pd.merge(missing_raw, raw_grades, on="Kontraktnummer")
     found_raw = found_raw[found_raw["Dato_r"] < found_raw["Dato_rist"]] \
         .sort_values("Dato_r", ascending=False) \
