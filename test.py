@@ -3,6 +3,7 @@
 
 import statistics
 import ti_data_preprocessing as tdp
+import bki_functions as bf
 
 
 
@@ -79,9 +80,7 @@ for i in no_collections:
 
 
 
-datacleaning_df = tdp.get_blend_grade_data(False)[2]
 
-
-
+# df_roaster_input = bf.get_roaster_input()
 
 
