@@ -64,8 +64,7 @@ def ga_cheapest_blend(contracts, flavors, prices, flavor_model, target_flavor, r
 
     # Initialize a hall of fame, a population of 1000 blends, and some relevant statistics
     pop = toolbox.population(n=1000)
-    # hof = tools.HallOfFame(20, equal_blends) # OLD ORIGINAL LINE
-    hof = tools.HallOfFame(50, blends_too_equal)
+    hof = tools.HallOfFame(50, blends_too_similar)
     stats_fit = tools.Statistics(key=lambda ind: ind.fitness.values)
     stats_flavor = tools.Statistics(key=lambda ind: sum(taste_diff(ind, flavor_model, candidates=flavors,
                                                                    target=target_flavor, color=roast_color,
@@ -84,6 +83,11 @@ def ga_cheapest_blend(contracts, flavors, prices, flavor_model, target_flavor, r
 
 
 def initial_blend(N, MIN_C=1, MAX_C=7, MIN_P=0.06, MAX_P=1.00):
+    """
+    Create the initial blend consisting of components between MIN_C and MAX_C with proportions
+    between MIN_P and MAX_P. If no of components is below MIN_C the blend is padded with -1
+    as placeholder values.
+    """
     components = random.randint(MIN_C, MAX_C)
     indices = random.sample(range(N), components)
     missing = MAX_C - components
@@ -100,6 +104,9 @@ def initial_blend(N, MIN_C=1, MAX_C=7, MIN_P=0.06, MAX_P=1.00):
 
 
 def mutate_comp(individual, N):
+    """
+    Changes a random number of components in an input blend.
+    """
     size = len(individual)
     components = [individual[i][0] for i in range(size) if individual[i][0] != -1]
     num_components = len(components)
@@ -120,6 +127,9 @@ def mutate_comp(individual, N):
 
 
 def drop_add_comp(individual, N, MIN_C=1, MAX_C=7, MIN_P=0.06, MAX_P=1.00):
+    """
+    Function to either do nothing to a blend, remove a random component or add a random component.
+    """
     size = len(individual)
     components = [individual[i][0] for i in range(size) if individual[i][0] != -1]
     num_components = len(components)
@@ -144,6 +154,9 @@ def drop_add_comp(individual, N, MIN_C=1, MAX_C=7, MIN_P=0.06, MAX_P=1.00):
 
 
 def mutate_p(individual, mu, sigma):
+    """
+    Change the proportions of a blend, but keep the komponents the same.
+    """
     size = len(individual)
     components = [individual[i][0] for i in range(size) if individual[i][0] != -1]
     num_components = len(components)
@@ -158,6 +171,11 @@ def mutate_p(individual, mu, sigma):
 
 
 def mutate_blend(individual, p_drop, p_mutp, p_mutc, N, mu=0, sigma=0.1, MIN_C=1, MAX_C=7, MIN_P=0.06, MAX_P=1.00):
+    """
+    Randomly decide whether a blend is to have its components changed, proportions changed or added/removed components.
+    A blend may also have nothing done to it.
+    """
+    # Maybe
     if (random.random() < p_drop):
         individual, = drop_add_comp(individual, N, MIN_C=MIN_C, MAX_C=MAX_C, MIN_P=MIN_P, MAX_P=MAX_P)
 
@@ -227,6 +245,9 @@ def normalize_p(N, MIN_C=1, MIN_P=0.06, MAX_P=1.00):
 
 
 def taste_diff(individual, flavor_model, candidates, target, color, MAX_C=7):
+    """
+    Calculates the aboslut difference between the calculated taste profile of a blend and the target values.
+    """
     D = len(candidates[0, :])
     size = len(individual)
     components = [individual[i][0] for i in range(size) if individual[i][0] != -1]
@@ -240,14 +261,15 @@ def taste_diff(individual, flavor_model, candidates, target, color, MAX_C=7):
     model_input = np.concatenate((model_input, [0] * ((D + 1) * (size - num_components))))
     model_input = np.concatenate((model_input, [color]))
 
-    # model_output = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1))) # Dette er hvad vi "tror" input individual vil smage som - Let til tests
-    # model_output = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1)) * 2) / 2 # Round to .5 values
-    # model_output = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1)) * 4) / 4 # Round to .25 values
+    # Do no rounding of the predicted flavor to ensure that the tolerances of deviation from target values are not unintentionally inflated.
     model_output = flavor_model.predict(np.array(model_input).reshape(1, -1))
     return np.abs(target - model_output)
 
 
 def blend_cost(individual, prices):
+    """
+    Calculated the cost of any input blend using the prices also input.
+    """
     size = len(individual)
     components = [individual[i][0] for i in range(size) if individual[i][0] != -1]
     proportions = [individual[i][1] for i in range(size) if individual[i][0] != -1]
@@ -257,59 +279,62 @@ def blend_cost(individual, prices):
 
 
 def blend_fitness(individual, prices, flavor_model, candidates, target, color, MAX_C=7):
+    """
+    Returns a value of arbitrary scale which indicates the proposed blends overall fitness as a candidate.
+    The higher the value the better fitness.
+    """
     min_max_scaler = preprocessing.MinMaxScaler()
     prices = min_max_scaler.fit_transform(prices)
     diff = taste_diff(individual, flavor_model, candidates, target, color, MAX_C)
     cost = blend_cost(individual, prices)
-    flavor_bound = 1 / (2 ** np.mean(diff ** 3)) # Evt. opløft i 4 eller 5 - ret i 2 eller 3
+    flavor_bound = 1 / (2 ** np.mean(diff ** 3))
     
     bki_blend_fitness =  flavor_bound - ( cost * 0.0005)
     
     return bki_blend_fitness
-    # return flavor_bound * (1.0 - cost) # Senest aktuelle return value!
-    #return flavor_bound / (1.2 ** cost), # Skalering af deres andel bør ikke være nødvendig når der er styr på de mere ekstreme profiler
 
 
-def equal_blends(ind1, ind2):
-    #TODO: Blends er identiske hvis de indeholder de samme kontrakter, uagtet proportionerne
-    comp1 = [ind1[i][0] for i in range(len(ind1)) if ind1[i][0] != -1]
-    comp2 = [ind2[i][0] for i in range(len(ind2)) if ind2[i][0] != -1]
-    return set(comp1) == set(comp2)
-
-def blends_too_equal(blend1, blend2) -> bool:
+def blends_too_similar(blend1, blend2) -> bool:
     """
     Compares two proposed blends of coffees. If they do not contain exactly the same components,
     they are deemed different. If they contain the exact same components, they are deemed different enough
     if the mean ABS differences in proportions are >= 0.1.
     Returns bool | True if blends are too equal
     """
-    
     # Get list of components in each blend, -1 to remove placeholder values
     blend_1_components = [blend1[i][0] for i in range(len(blend1)) if blend1[i][0] != -1]
     blend_2_components = [blend2[i][0] for i in range(len(blend2)) if blend2[i][0] != -1]
     # Do blends contain same items. If not they are different already
-    blends_too_equal = set(blend_1_components) == set(blend_2_components)
+    blends_too_similar = set(blend_1_components) == set(blend_2_components)
     # If both blends contain same items, compare proportions
-    if blends_too_equal:
+    if blends_too_similar:
         # Get lists of proportions for each blend
         blend_1_proportions = [blend1[i][1]  for i in range(len(blend1)) if blend1[i][0] != -1]
         blend_2_proportions = [blend2[i][1]  for i in range(len(blend2)) if blend2[i][0] != -1]
         # Get the ABS difference between the blends. Round to prevent issues with floats
         blends_differences = [round(abs(b1 - b2),2) for b1, b2 in zip(blend_1_proportions, blend_2_proportions)]
-        # # Blends are different enough if the mean ABS change is >= 0.1 across components
-        # blends_different_enough = ( sum(blends_differences) / len(blend_1_components) ) >= 0.1
-        # Blends are different enough if any component has had its proportion changed by 0.1 or more
-        # blends_too_equal = not any(diff >= 0.1 for diff in blends_differences)
-        blends_too_equal = statistics.mean(blends_differences) < 0.1
-    return blends_too_equal
-
-
+        # Blends are different enough if the mean ABS change is >= 0.1 across components
+        blends_too_similar = statistics.mean(blends_differences) < 0.1
+    return blends_too_similar
 
 
 #TODO predict taste profile of each blend suggestion
 #Blend = først levels i hall of fame, flavor model = model, component_flavors = numpy array med kontrakternes smagsprofil, color = farve
 #OBS OBS OBS!!!! Component flavors skal være en liste over samtlige kontrakter med deres smag!!!
 def taste_pred(blend, flavor_model, component_flavors, color):
+    """
+    Predict a flavor profile of a given input blend.
+    Parameters
+    ----------
+    blend : A nested list containing component id and proportion.
+    flavor_model : The full name and path of the trained model used to predict flavor profile.
+    component_flavors : A full list of flavors for all components available, not just those included in the blend.
+    color : The target color of the blend.
+    Returns
+    -------
+    A list with the predicted flavor profile of the input blend.
+    """
+    
     D = len(component_flavors[0, :])
     size = len(blend)
     components = [blend[i][0] for i in range(size) if blend[i][0] != -1]
@@ -324,11 +349,9 @@ def taste_pred(blend, flavor_model, component_flavors, color):
     model_input = np.concatenate((model_input, [0] * ((D + 1) * (size - num_components))))
     model_input = np.concatenate((model_input, [color]))
 
-    # predicted_flavors = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1)) * 4) / 4 # Round to .25 values
-
     predicted_flavors = np.round(flavor_model.predict(np.array(model_input).reshape(1, -1)) ,1)
 
-    return predicted_flavors
+    return predicted_flavors[0]
 
 
 
