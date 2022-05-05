@@ -332,22 +332,3 @@ def taste_pred(blend, flavor_model, component_flavors, color):
 
 
 
-def pred_fitness(individual, prices, flavor_model, candidates, target, color, MAX_C=7):
-    min_max_scaler = preprocessing.MinMaxScaler()
-    prices = min_max_scaler.fit_transform(prices)
-    diff = taste_diff(individual, flavor_model, candidates, target, color, MAX_C)
-    cost = blend_cost(individual, prices)
-    flavor_bound = 1 / (2 ** np.mean(diff ** 3)) # Evt. opløft i 4 eller 5 - ret i 2 eller 3
-    
-    bki_blend_fitness =  flavor_bound - ( cost * 0.0005)
-    
-    return bki_blend_fitness, flavor_bound, cost
-
-
-
-
-
-
-
-
-
