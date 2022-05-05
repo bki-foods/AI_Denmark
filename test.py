@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import statistics
+import ti_data_preprocessing as tdp
 
 
 
@@ -78,6 +79,7 @@ for i in no_collections:
 
 
 
+datacleaning_df = tdp.get_blend_grade_data(False)[2]
 
 
 
