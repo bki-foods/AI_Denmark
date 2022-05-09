@@ -150,7 +150,7 @@ bf.insert_dataframe_into_excel(
 df_blend_suggestions_summarized = df_blend_suggestions.groupby(["Blend_nr"],dropna=False) \
                                                       .agg({"Beregnet pris": 'sum'}) \
                                                       .reset_index()
-# df_blend_suggestions_summarized[flavor_columns] = ''
+
 # Get a list over number of blends that needs to be iterated over
 blend_no_iterator = df_blend_suggestions_summarized["Blend_nr"].to_list()
 # Create lists for flavors
@@ -159,12 +159,6 @@ predicted_flavors_aroma = []
 predicted_flavors_krop = []
 predicted_flavors_eftersmag = []
 predicted_flavors_robusta = []
-# =============================================================================
-# # Fitness values # TODO - TEMP
-# predicted_fitness = []
-# predicted_flavor_bound = []
-# predicted_cost = []
-# =============================================================================
 # Iterate over each blend and append flavor to lists
 for blend_no in blend_no_iterator:
     # Iterate over integers.. cleanup...
@@ -182,22 +176,6 @@ for blend_no in blend_no_iterator:
     if predict_robusta:
         predicted_flavors_robusta += [predicted_flavors[4]]
     
-# =============================================================================
-#     # Get fitness values #TODO Probably a temporary addition to finetune weights of cost vs flavour
-#     blend_fitness, flavor_bound, cost = tpo.pred_fitness(
-#         hof_blend
-#         ,contract_prices_list
-#         ,flavor_predictor
-#         ,flavors_list
-#         ,target_flavor_list
-#         ,request_farve)
-#     predicted_fitness += [blend_fitness.tolist()[0]]
-#     predicted_flavor_bound += [flavor_bound]
-#     predicted_cost += [cost.tolist()[0]]
-# =============================================================================
-
-
-
 # Add flavors to dataframe
 df_blend_suggestions_summarized["Syre"] = predicted_flavors_syre
 df_blend_suggestions_summarized["Aroma"] = predicted_flavors_aroma
@@ -205,12 +183,7 @@ df_blend_suggestions_summarized["Krop"] = predicted_flavors_krop
 df_blend_suggestions_summarized["Eftersmag"] = predicted_flavors_eftersmag
 if predict_robusta:
     df_blend_suggestions_summarized["Robusta"] = predicted_flavors_robusta
-# =============================================================================
-# # Add fitness values to dataframe #TODO probably temporary
-# df_blend_suggestions_summarized["Fitness"] = predicted_fitness
-# df_blend_suggestions_summarized["Flavor_bound"] = predicted_flavor_bound
-# df_blend_suggestions_summarized["Cost"] = predicted_cost
-# =============================================================================
+
 # Calculate whether or not a suggested recipe indicates any savings in cost
 if requested_recipe_price:
     df_blend_suggestions_summarized["Pris diff"] = df_blend_suggestions_summarized["Beregnet pris"] - requested_recipe_price
@@ -232,7 +205,6 @@ bf.insert_dataframe_into_excel(
     excel_writer
     ,bf.get_identical_recipes(request_syre, request_aroma, request_krop, request_eftersmag)
     ,"Identiske, lign. recepter")
-
 
 # Input data for request, replace 0/1 with text values before transposing
 dict_include_exclude = {0: "Ekskluder", 1: "Inkluder"}
