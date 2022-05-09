@@ -13,7 +13,7 @@ import time
 start_time = time.time()
 
 
-contracts = [40,41,53,30,13,23,32,45,16,49,31,43,7,2,4,11,8,21,26,1,14,20,39,47,35,12,6,9]
+contracts = [2,13,56,62,86,20,48,9,11,79,10,34,12,72,71,16,33,4,36,67,47,41]
 
 
 def blend_prop_permutations(contracts: list, N_components: int) -> list:
@@ -53,7 +53,8 @@ def blend_prop_permutations(contracts: list, N_components: int) -> list:
 # Number of simulations to run if number of contracts exceed max feasible limit to do at the same time
 # =============================================================================
 def simulate_selected_contracts(contracts: list ,flavor_model ,flavors_list ,color: int
-                                ,no_components: list = [4,5] ,no_simulations: int = 5):
+                                ,target_flavor: list
+                                ,no_components: list = [4,5] ,no_simulations: int = 10):
 
     # If no_components list has more than one value each value is iterated over
     no_of_contracts = len(contracts)
@@ -61,9 +62,10 @@ def simulate_selected_contracts(contracts: list ,flavor_model ,flavors_list ,col
     # Dictionary with lists of number of contracts to be used in blends. Key indicate no of components in blend.
     # Value indicate max number of contracts to be able to simulate all combinations.
     # If input length exceeds this
-    contracts_possible = {1: 500 ,2: 75 ,3: 13 ,4: 7 ,5: 6 ,6: 6 ,7: 7}
+    contracts_possible = {1: 500 ,2: 25 ,3: 6 ,4: 4 ,5: 4 ,6: 6 ,7: 7}
     # Blend no for when blends need to be exported to Excel
     blend_no = 0
+    temp = 0
     for i in no_components:
         padding_placeholder = (7 - i) * [-1]
         padding_proportions = (7 - i) * [0] 
@@ -72,33 +74,36 @@ def simulate_selected_contracts(contracts: list ,flavor_model ,flavors_list ,col
         # If more options are input than is possible, random selection is necessary    
         if no_of_contracts > contracts_possible[i]:
             for ii in range(no_simulations):
-                blend_no += 1
                 # Pick the maximum allowed number of contracts at random from input list
                 random_contracts = random.choices(contracts, k=contracts_possible[i])
+                print(random_contracts)
                 # Create all possible blends from the randomly selected contracts
                 temp_blends = blend_prop_permutations(random_contracts, i)
                 # Convert to proper format and add padding if needed
                 temp_blends = [list(zip(list(blend[0]),list(blend[1]))) for blend in temp_blends]
                 temp_blends = [blend +padding for blend in temp_blends]
-                #    
                 # Iterate over each blend and append flavor to lists
-                for blend_no,blend in enumerate(temp_blends):
-                    # Iterate over integers.. cleanup...
-                    blend_no = int(i)
-                    # Get hof blend by index
-                    temp_blend_single = temp_blends[blend_no]
+                
+                
+                for blend_no_it,blend in enumerate(temp_blends):
                     # Predict flavor
                     predicted_flavor_profile = tpo.taste_pred(
-                        temp_blend_single
+                        blend
                         ,flavor_predictor
                         ,flavors_list
                         ,110)
+                    print(blend)
                     # Vi skal have fjernet de uinteressante blends og gemt de spændende i en liste for sig.
-                    # Husk at lægge en max værdi ind
+                    if not any(abs(predicted_flavor_profile - target_flavor_list) > 1.0):
+                        print("her er et match")
+                        temp += 1
+                    blend_no += 1
+                blend_no += 1
             pass
         else: # If len <= contracts possible, no random selection is necessary
             pass
-    return temp_blends
+    print(temp)
+    return temp_blends,ii
 
 
 
@@ -141,45 +146,16 @@ model_name = "flavor_predictor_no_robusta.sav"
 flavor_predictor = joblib.load(model_name)
 flavor_columns = ["Syre","Aroma","Krop","Eftersmag"]
 flavors_list = df_available_coffee[flavor_columns].to_numpy()
+target_flavor_list = [6,6,7,6]
 # =============================================================================
 # END OF TESTING PART
 # =============================================================================
 
 #OBS OBS OBS OBS
-TEST_AF_SIMULEREDE_BLENDS = simulate_selected_contracts(contracts ,flavor_predictor ,flavors_list ,110)
+TEST_AF_SIMULEREDE_BLENDS,FLAVORS = simulate_selected_contracts(contracts ,flavor_predictor ,flavors_list ,110, target_flavor_list)
 
 
-
-
-
-# =============================================================================
-# # Iterate over each blend and append flavor to lists
-# for i,blend_no in enumerate(TEST_AF_SIMULEREDE_BLENDS):
-#     # Iterate over integers.. cleanup...
-#     blend_no = int(i)
-#     # Get hof blend by index
-#     hof_blend = TEST_AF_SIMULEREDE_BLENDS[blend_no]
-#     # Predict flavor
-#     predicted_flavors = tpo.taste_pred(
-#         hof_blend # iterable i funktion
-#         ,flavor_predictor # paramter til func
-#         ,flavors_list # parameter til func
-#         ,110) # parameter til func
-# =============================================================================
-
-
-# tpo.taste_pred(blend, flavor_model, component_flavors, color)
-
-
-
-
-
-
-
-
-
-
-
+print(FLAVORS)
 
 
 
