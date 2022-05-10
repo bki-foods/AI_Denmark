@@ -73,7 +73,7 @@ df_available_coffee["Kontrakt_id"] = df_available_coffee.index
 if predict_robusta:
     flavor_columns = ["Syre","Aroma","Krop","Eftersmag","Robusta"]
     flavors_list = df_available_coffee[flavor_columns].to_numpy()
-    target_flavor_list = df_request[["Syre","Aroma","Krop","Eftersmag","Robusta"]].to_numpy()[0]
+    target_flavor_list = df_request[["Syre","Aroma","Krop","Eftersmag","Robusta"]].fillna(10).to_numpy()[0]
     model_name = "flavor_predictor_robusta.sav"
 else:
     flavor_columns = ["Syre","Aroma","Krop","Eftersmag"]
