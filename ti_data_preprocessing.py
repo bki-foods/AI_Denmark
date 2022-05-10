@@ -42,7 +42,7 @@ def get_blend_grade_data(robusta=True):
                          "Aroma": "Aroma_r",
                          "Eftersmag": "Eftersmag_r",
                          "Robusta": "Robusta_r"})
-    raw_grades["Robusta_r"] = raw_grades["Robusta_r"].fillna(10)
+    raw_grades["Robusta_r"].fillna(10, inplace=True)
     raw_grades = raw_grades.dropna(subset=["Kontraktnummer", "Dato_r", "Syre_r", "Krop_r", "Aroma_r",
                                            "Eftersmag_r"])
 
@@ -83,10 +83,12 @@ def get_blend_grade_data(robusta=True):
     res4 = pd.merge(contracts, res3, on=["Kontraktnummer"])
     res5 = pd.merge(raw_grades, res4, on=["Kontraktnummer", "Modtagelse"], how="right")
     raw_success = pd.merge(raw_grades, res4, on=["Kontraktnummer", "Modtagelse"], how="inner")
-
+#TODO HER!! tilføjet robusta_r
     missing_raw = res5[res5["Syre_r"].isna()] \
         .drop(columns=["Dato_r", "Modtagelse", "Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r"]) \
         .drop_duplicates()
+    if robusta: # changed from if not robusta --> if robusta
+        missing_raw.drop("Robusta_r", inplace=True, axis=1)
 
     # If no kontrakt/modtagelse has been defined, use data for the last kontrakt graded before the roasting date
     found_raw = pd.merge(missing_raw, raw_grades, on="Kontraktnummer")
@@ -99,7 +101,13 @@ def get_blend_grade_data(robusta=True):
                                  "Ordre_rist", "Ordre_p", "Kilo_rist_input"])
 
     tasting_ids = list(set(filtered_data["Smagningsid"]))
-
+    
+# =============================================================================
+#     TEMP_DF_NAN = filtered_data[filtered_data[["Robusta_r","Robusta_p"]].isna().any(axis=1)]
+#     print(TEMP_DF_NAN)
+#     return TEMP_DF_NAN
+# =============================================================================
+    
     X_list = []
     Y_list = []
 
@@ -108,7 +116,6 @@ def get_blend_grade_data(robusta=True):
         batch_ids = list(set(tasting_data["Batch id"]))
         prod_ids = list(set(tasting_data["Produktionsordre id"]))
 
-        # # If the product contains robusta coffee, we need to do the analysis on "Produktionsordre"-level
         # if not set(tasting_data["Sort"]).isdisjoint(robusta_sorts):
         # If the produced recipes are used for BAR blends, do the analysis on "Produktionsordre"-level # Weigh 10401005/10401207 as 2/3 and 1/3
         if not set(tasting_data['Receptnummer']).isdisjoint(bar_recipes):
@@ -178,3 +185,5 @@ def get_blend_grade_data(robusta=True):
                         Y_list.append(y_np.flatten())
 
     return np.array(X_list), np.array(Y_list)
+
+# temp_df = get_blend_grade_data(robusta=True)
