@@ -38,7 +38,7 @@ dict_locations = {
 # Minimum available amount of coffee for an item to be included
 min_quantity = df_request["Minimum_lager"].iloc[0]
 # Calculated price for target recipe if such is defined
-requested_recipe_price = bf.get_recipe_calculated_standard_cost(df_request["Receptnummer"].iloc[0])
+requested_recipe_prices = bf.get_recipe_calculated_costs(df_request["Receptnummer"].iloc[0])
 
 # Different types of certifications
 dict_certifications = {
@@ -56,6 +56,7 @@ df_available_coffee = bf.get_all_available_quantities(
 column_order_available_coffee = ["Kontraktnummer","Modtagelse","Lokation","Beholdning"
                                  ,"Syre","Aroma","Krop","Eftersmag","Robusta"
                                  ,"Differentiale", "Kostpris","Standard Cost"
+                                 ,"Forecast Unit Cost +1M", "Forecast Unit Cost +2M", "Forecast Unit Cost +3M"
                                  ,"Sort","Varenavn","Screensize","Oprindelsesland","Mærkningsordning"]
 df_available_coffee = df_available_coffee[column_order_available_coffee]
 # Replace all na values for robusta with 10 if algorithm is to predict this, otherwise remove it
@@ -68,7 +69,6 @@ df_available_coffee.dropna(subset=["Syre","Aroma","Krop","Eftersmag"],inplace=Tr
 df_available_coffee.reset_index(drop=True, inplace=True)
 # Add dataframe index to a column to use for join later on
 df_available_coffee["Kontrakt_id"] = df_available_coffee.index
-# df_available_coffee["Differentiale"] = 0.0
 
 if predict_robusta:
     flavor_columns = ["Syre","Aroma","Krop","Eftersmag","Robusta"]
@@ -126,7 +126,8 @@ for blend in blend_suggestions_hof:
             df_blend_suggestions = df_blend_suggestions.append(data, ignore_index = True)
 # Defined column order for final dataframe, only add robusta if it is to be predicted.
 blend_suggestion_columns = ["Blend_nr" ,"Kontraktnummer" ,"Modtagelse" ,"Proportion"
-                            ,"Sort","Varenavn","Differentiale","Kostpris","Standard Cost","Beregnet pris"
+                            ,"Sort","Varenavn","Beregnet pris" ,"Beregnet pris +1M"
+                            ,"Beregnet pris +2M", "Beregnet pris +3M"
                             ,"Syre", "Aroma", "Krop", "Eftersmag"
                             ,"Screensize", "Oprindelsesland","Mærkningsordning", "Kontrakt_id"]
 if predict_robusta:
@@ -140,6 +141,9 @@ df_blend_suggestions = pd.merge(
     ,right_on = "Kontrakt_id")
 # Calculate blend cost per component using the standard cost price of each component
 df_blend_suggestions["Beregnet pris"] = df_blend_suggestions["Proportion"] * df_blend_suggestions["Standard Cost"]
+df_blend_suggestions["Beregnet pris +1M"] = df_blend_suggestions["Proportion"] * df_blend_suggestions["Forecast Unit Cost +1M"]
+df_blend_suggestions["Beregnet pris +2M"] = df_blend_suggestions["Proportion"] * df_blend_suggestions["Forecast Unit Cost +2M"]
+df_blend_suggestions["Beregnet pris +3M"] = df_blend_suggestions["Proportion"] * df_blend_suggestions["Forecast Unit Cost +3M"]
 # Insert into workbook
 bf.insert_dataframe_into_excel(
     excel_writer
@@ -148,7 +152,10 @@ bf.insert_dataframe_into_excel(
 
 # Sumarized blend suggestions with total cost
 df_blend_suggestions_summarized = df_blend_suggestions.groupby(["Blend_nr"],dropna=False) \
-                                                      .agg({"Beregnet pris": 'sum'}) \
+                                                      .agg({"Beregnet pris": "sum"
+                                                            ,"Beregnet pris +1M": "sum"
+                                                            ,"Beregnet pris +2M": "sum"
+                                                            ,"Beregnet pris +3M": "sum"}) \
                                                       .reset_index()
 
 # Get a list over number of blends that needs to be iterated over
@@ -185,10 +192,13 @@ if predict_robusta:
     df_blend_suggestions_summarized["Robusta"] = predicted_flavors_robusta
 
 # Calculate whether or not a suggested recipe indicates any savings in cost
-if requested_recipe_price:
-    df_blend_suggestions_summarized["Pris diff"] = df_blend_suggestions_summarized["Beregnet pris"] - requested_recipe_price
-else:
-    df_blend_suggestions_summarized["Pris diff"] = None
+# if requested_recipe_price:
+df_blend_suggestions_summarized["Pris diff"] = df_blend_suggestions_summarized["Beregnet pris"] - requested_recipe_prices["Price"]
+df_blend_suggestions_summarized["Pris diff +1M"] = df_blend_suggestions_summarized["Beregnet pris +1M"] - requested_recipe_prices["Price +1M"]
+df_blend_suggestions_summarized["Pris diff +2M"] = df_blend_suggestions_summarized["Beregnet pris +2M"] - requested_recipe_prices["Price +2M"]
+df_blend_suggestions_summarized["Pris diff +3M"] = df_blend_suggestions_summarized["Beregnet pris +3M"] - requested_recipe_prices["Price +3M"]
+# else:
+    # df_blend_suggestions_summarized["Pris diff"] = None
 # Insert final dataframe into workbook
 bf.insert_dataframe_into_excel(
     excel_writer
@@ -213,8 +223,12 @@ columns_include_exclude = ["Inkluder_konventionel","Inkluder_fairtrade","Inklude
                            ,"Lager_spot","Lager_afloat","Lager_udland"]
 for col in columns_include_exclude:
     df_request[col] = df_request[col].map(dict_include_exclude)
-# Add a column with calculated recipe price
-df_request["Beregnet pris"] = requested_recipe_price
+# Add columns with calculated recipe price
+df_request["Beregnet pris"] = requested_recipe_prices["Price"]
+df_request["Beregnet pris +1M"] = requested_recipe_prices["Price +1M"]
+df_request["Beregnet pris +2M"] = requested_recipe_prices["Price +2M"]
+df_request["Beregnet pris +3M"] = requested_recipe_prices["Price +3M"]
+
 # Transpose and change headers
 df_request = df_request.transpose().reset_index()
 df_request.columns = ["Oplysning","Værdi"]
