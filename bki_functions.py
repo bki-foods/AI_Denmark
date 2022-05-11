@@ -118,11 +118,12 @@ def get_list_of_missing_values(df_total:pd.DataFrame(), total_column_name:str, d
     return missing_values
 
 # Get a calculated price of a given input recipe
-def get_recipe_calculated_standard_cost(recipe:str) -> float:
+def get_recipe_calculated_costs(recipe:str) -> float:
     """
-    Returns a calculated price for the input recipe.
-    The price for the recipe is calculated using the standard cost price for the green coffees in the recipe.
+    Returns a dictionary with calculated prices for the input recipe.
+    The prices for the recipe is calculated using the standard cost price and forecast prices for the green coffees in the recipe
     The green coffee prices that are used are the 1010 prices, to ensure a comparable price with recipe suggestions from NN.
+    Dictionary keys: Price | Price +1M | Price +2M | Price +3M
     """
     query = f""" WITH BOM_VER AS (
                 SELECT TOP 1 PBV.[Production BOM No_] ,[Version Code]
@@ -133,6 +134,9 @@ def get_recipe_calculated_standard_cost(recipe:str) -> float:
                 ORDER BY PBV.[Starting Date] DESC )
                 SELECT
                 	ISNULL(SUM(PBL.[Quantity] * (1 + PBL.[Scrap _] / 100) * I2.[Standard Cost]),0) AS [Price]
+					,ISNULL(SUM(PBL.[Quantity] * (1 + PBL.[Scrap _] / 100) * FUC.[Forecast Unit Cost +1M]),0) AS [Price +1M]
+					,ISNULL(SUM(PBL.[Quantity] * (1 + PBL.[Scrap _] / 100) * FUC.[Forecast Unit Cost +2M]),0) AS [Price +2M]
+					,ISNULL(SUM(PBL.[Quantity] * (1 + PBL.[Scrap _] / 100) * FUC.[Forecast Unit Cost +3M]),0) AS [Price +3M]
                 FROM [dbo].[BKI foods a_s$Production BOM Line] AS PBL
                 INNER JOIN BOM_VER
                 	ON PBL.[Production BOM No_] = BOM_VER.[Production BOM No_]
@@ -141,10 +145,18 @@ def get_recipe_calculated_standard_cost(recipe:str) -> float:
                 	ON PBL.[No_] = I.[No_]
                 INNER JOIN [dbo].[BKI foods a_s$Item] AS I2
                 	ON '1010' + RIGHT(I.[No_],4) = I2.[No_]
+				LEFT JOIN [dbo].[BKI foods a_s$Forecast Item Unit Cost] AS FUC
+					ON PBL.[No_] = FUC.[Item No_]
                 WHERE I.[Item Category Code] = 'RÅKAFFE' """
     df = pd.read_sql(query, bsi.con_nav)
-   
-    return float(df["Price"].iloc[0])
+    
+    prices = {
+        "Price": float(df["Price"].iloc[0])
+        ,"Price +1M": float(df["Price +1M"].iloc[0])
+        ,"Price +2M": float(df["Price +2M"].iloc[0])
+        ,"Price +3M": float(df["Price +3M"].iloc[0])}
+    
+    return prices 
 
 # Get information from coffee contracts from Navision
 def get_coffee_contracts() -> pd.DataFrame():
@@ -162,6 +174,7 @@ def get_coffee_contracts() -> pd.DataFrame():
         		ELSE NULL END AS [Metode]
         	,PL.[No_] AS [Sort] ,I.[Mærkningsordning] ,PH.[Differentials] AS [Differentiale]
             ,I.[Description] AS [Varenavn], I.[Unit Cost] AS [Kostpris], I.[Standard Cost]
+			,FUC.[Forecast Unit Cost +1M], FUC.[Forecast Unit Cost +2M], FUC.[Forecast Unit Cost +3M]
 			,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%FAIR%' THEN 1 ELSE 0 END AS [Fairtrade]
 			,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%ØKO%' THEN 1 ELSE 0 END AS [Økologi]
 			,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%RFA%' THEN 1 ELSE 0 END AS [Rainforest]
@@ -176,8 +189,14 @@ def get_coffee_contracts() -> pd.DataFrame():
             	ON PL.[No_] = I.[No_]
             LEFT JOIN [dbo].[BKI foods a_s$Country_Region] AS CR
             	ON PH.[Pay-to Country_Region Code] = CR.[Code]
-            WHERE PH.[Kontrakt] = 1"""
+			LEFT JOIN [dbo].[BKI foods a_s$Forecast Item Unit Cost] AS FUC
+				ON I.[No_] = FUC.[Item No_]
+            WHERE PH.[Kontrakt] = 1
+				AND I.[No_] NOT LIKE '1012%'"""
     df = pd.read_sql(query, bsi.con_nav)
+    
+    # Ensure forecast unit costs have a value, just punish the blend enough that it's obvious that there is an issue with prices
+    df[["Forecast Unit Cost +1M","Forecast Unit Cost +2M","Forecast Unit Cost +3M"]].fillna(999, inplace=True)
     return df
 
 # Get masterdata for recipes (green coffee blends)
