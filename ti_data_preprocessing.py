@@ -116,7 +116,6 @@ def get_blend_grade_data(robusta=True):
         batch_ids = list(set(tasting_data["Batch id"]))
         prod_ids = list(set(tasting_data["Produktionsordre id"]))
 
-        # if not set(tasting_data["Sort"]).isdisjoint(robusta_sorts):
         # If the produced recipes are used for BAR blends, do the analysis on "Produktionsordre"-level # Weigh 10401005/10401207 as 2/3 and 1/3
         if not set(tasting_data['Receptnummer']).isdisjoint(bar_recipes):
             for p_id in prod_ids:
@@ -185,5 +184,3 @@ def get_blend_grade_data(robusta=True):
                         Y_list.append(y_np.flatten())
 
     return np.array(X_list), np.array(Y_list)
-
-# temp_df = get_blend_grade_data(robusta=True)
