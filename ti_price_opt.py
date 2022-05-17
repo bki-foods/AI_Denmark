@@ -289,7 +289,7 @@ def blend_fitness(individual, prices, flavor_model, candidates, target, color, M
     cost = blend_cost(individual, prices)
     flavor_bound = 1 / (2 ** np.mean(diff ** 3))
     
-    bki_blend_fitness =  flavor_bound - ( cost * 0.0005)
+    bki_blend_fitness =  flavor_bound - ( cost * 0.0015)
     
     return bki_blend_fitness
 
@@ -314,7 +314,7 @@ def blends_too_similar(blend1, blend2) -> bool:
         # Get the ABS difference between the blends. Round to prevent issues with floats
         blends_differences = [round(abs(b1 - b2),2) for b1, b2 in zip(blend_1_proportions, blend_2_proportions)]
         # Blends are different enough if the mean ABS change is >= 0.1 across components
-        blends_too_similar = statistics.mean(blends_differences) < 0.1
+        blends_too_similar = statistics.mean(blends_differences) < 0.05
     return blends_too_similar
 
 
