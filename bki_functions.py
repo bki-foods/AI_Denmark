@@ -133,10 +133,10 @@ def get_recipe_calculated_costs(recipe:str) -> float:
                 WHERE PBV.[Status] = 1 AND I.[No_] = '{recipe}'
                 ORDER BY PBV.[Starting Date] DESC )
                 SELECT
-                	ISNULL(SUM(PBL.[Quantity] * (1 + PBL.[Scrap _] / 100) * I2.[Standard Cost]),0) AS [Price]
-					,ISNULL(SUM(PBL.[Quantity] * (1 + PBL.[Scrap _] / 100) * FUC.[Forecast Unit Cost +1M]),0) AS [Price +1M]
-					,ISNULL(SUM(PBL.[Quantity] * (1 + PBL.[Scrap _] / 100) * FUC.[Forecast Unit Cost +2M]),0) AS [Price +2M]
-					,ISNULL(SUM(PBL.[Quantity] * (1 + PBL.[Scrap _] / 100) * FUC.[Forecast Unit Cost +3M]),0) AS [Price +3M]
+                	ISNULL(SUM(PBL.[Quantity] * I2.[Standard Cost]),0) AS [Price]
+					,ISNULL(SUM(PBL.[Quantity] * FUC.[Forecast Unit Cost +1M]),0) AS [Price +1M]
+					,ISNULL(SUM(PBL.[Quantity] * FUC.[Forecast Unit Cost +2M]),0) AS [Price +2M]
+					,ISNULL(SUM(PBL.[Quantity] * FUC.[Forecast Unit Cost +3M]),0) AS [Price +3M]
                 FROM [dbo].[BKI foods a_s$Production BOM Line] AS PBL
                 INNER JOIN BOM_VER
                 	ON PBL.[Production BOM No_] = BOM_VER.[Production BOM No_]
