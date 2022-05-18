@@ -546,7 +546,8 @@ def get_target_cupping_profiles() -> pd.DataFrame():
     df = pd.read_sql(query, bsi.con_nav)
     return df
 
-def get_all_available_quantities(location_filter: dict, min_quantity: float, certifications: dict) -> pd.DataFrame():
+def get_all_available_quantities(location_filter: dict, min_quantity: float, certifications: dict
+                                 ,aggregate: bool) -> pd.DataFrame():
     """
     Returns a dataframe with all available coffee contracts which adhere to criteria regarding
     locations, min. quantity as well as any certifications.
@@ -554,11 +555,17 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
     Parameters
     ----------
     location_filter : dict
-        A dictionary with keys == SPOT,AARHUSHAVN,UDLAND,AFLOAT,SILOER,WAREHOUSE. 0/1 whether to include or not
+        A dictionary with keys == SPOT,AARHUSHAVN,UDLAND,AFLOAT,SILOER,WAREHOUSE. 0/1 whether to include or not.
+        This criteria is used for filtering before any aggregation is done to the data.
     min_quantity : float
         The minimum quantity that must be available for a contract to be considered for use.
+        This criteria is used for filtering before any aggregation is done to the data.
     certifications : dict
         A dctionary with keys == Fairtrade,Konventionel,Rainforest,Sammensætning,Økologi 0/1 whether to include or not
+    aggregate : bool
+        Boolean indicating whether or not to aggregate data before it is returned.
+        If aggregated, several columns that are contract specific will be changed to 'n/a'.
+        If True, all flavor profiles are weighted against the available quantity.
     Returns
     -------
     df : pd.DataFrame()
@@ -660,6 +667,23 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
              ,"Lokation_filter","Leverandør","Høst","Høstår","Metode"
              ,"Fairtrade","Økologi","Rainforest","Konventionel","Kaffetype"]
             ,inplace=True, axis=1)
+    # If the available amounts are requested as aggregated values, do this
+    if aggregate:
+        df[["Syre","Aroma","Krop","Eftersmag","Robusta"]] = df[["Syre","Aroma","Krop","Eftersmag","Robusta"]].multiply(df["Beholdning"], axis="index")
+        # Change contract specific column values to n/a to allow for a group by
+        df[["Kontraktnummer","Modtagelse","Lokation","Differentiale","Screensize","Oprindelsesland"]] = "n/a"
+        # Calculate the flavor profiles as a weighted value
+        df = df.groupby(["Kontraktnummer","Modtagelse","Lokation","Differentiale","Kostpris","Standard Cost"
+                         ,"Forecast Unit Cost +1M","Forecast Unit Cost +2M","Forecast Unit Cost +3M","Sort","Varenavn"
+                         ,"Screensize","Oprindelsesland","Mærkningsordning"], dropna=False).agg(
+                             {"Beholdning": "sum"
+                              ,"Syre": "sum"
+                              ,"Aroma": "sum"
+                              ,"Krop": "sum"
+                              ,"Eftersmag": "sum"
+                              ,"Robusta": "sum"}).reset_index()
+        df[["Syre","Aroma","Krop","Eftersmag","Robusta"]] = df[["Syre","Aroma","Krop","Eftersmag","Robusta"]].divide(df["Beholdning"], axis="index")
+    
     return df
 
 # Get identical recipes
