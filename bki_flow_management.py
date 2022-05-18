@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import pandas as pd
-import numpy as np
 import joblib
 import bki_functions as bf
 import bki_server_information as bsi
@@ -19,6 +18,7 @@ request_aroma = df_request["Aroma"].iloc[0]
 request_krop = df_request["Krop"].iloc[0]
 request_eftersmag = df_request["Eftersmag"].iloc[0]
 request_farve = df_request["Farve"].iloc[0]
+request_aggregate_input = True if df_request["Aggreger_til_sortniveau"].iloc[0] == 1 else False
 # Setting to differentiate between whether or not algorithm is expected to predict robusta taste or not
 predict_robusta = False
 
@@ -52,7 +52,8 @@ dict_certifications = {
 df_available_coffee = bf.get_all_available_quantities(
     dict_locations
     ,min_quantity
-    ,dict_certifications)
+    ,dict_certifications
+    ,request_aggregate_input)
 column_order_available_coffee = ["Kontraktnummer","Modtagelse","Lokation","Beholdning"
                                  ,"Syre","Aroma","Krop","Eftersmag","Robusta"
                                  ,"Differentiale", "Kostpris","Standard Cost"
@@ -86,21 +87,14 @@ contracts_list = df_available_coffee["Kontraktnummer"].to_list()
 
 # model for flavor predictor
 flavor_predictor = joblib.load(model_name)
-
-
-blend_suggestions_population, blend_suggestions_logbook, blend_suggestions_hof = tpo.ga_cheapest_blend(
+# Get blend suggestions
+blend_suggestions_hof = tpo.ga_cheapest_blend(
     contracts_list
     ,flavors_list
     ,contract_prices_list
     ,flavor_predictor
     ,target_flavor_list
-    ,request_farve)
-
-# print(blend_suggestions_population
-#       ,blend_suggestions_logbook
-#       ,blend_suggestions_hof)
-
-# print(blend_suggestions_hof)
+    ,request_farve)[2]
 
 # =============================================================================
 # Create Excel workbook with relevant sheets
@@ -192,13 +186,11 @@ if predict_robusta:
     df_blend_suggestions_summarized["Robusta"] = predicted_flavors_robusta
 
 # Calculate whether or not a suggested recipe indicates any savings in cost
-# if requested_recipe_price:
 df_blend_suggestions_summarized["Pris diff"] = df_blend_suggestions_summarized["Beregnet pris"] - requested_recipe_prices["Price"]
 df_blend_suggestions_summarized["Pris diff +1M"] = df_blend_suggestions_summarized["Beregnet pris +1M"] - requested_recipe_prices["Price +1M"]
 df_blend_suggestions_summarized["Pris diff +2M"] = df_blend_suggestions_summarized["Beregnet pris +2M"] - requested_recipe_prices["Price +2M"]
 df_blend_suggestions_summarized["Pris diff +3M"] = df_blend_suggestions_summarized["Beregnet pris +3M"] - requested_recipe_prices["Price +3M"]
-# else:
-    # df_blend_suggestions_summarized["Pris diff"] = None
+
 # Insert final dataframe into workbook
 bf.insert_dataframe_into_excel(
     excel_writer
