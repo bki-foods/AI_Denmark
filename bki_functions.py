@@ -146,7 +146,7 @@ def get_recipe_calculated_costs(recipe:str) -> float:
                 INNER JOIN [dbo].[BKI foods a_s$Item] AS I2
                 	ON '1010' + RIGHT(I.[No_],4) = I2.[No_]
 				LEFT JOIN [dbo].[BKI foods a_s$Forecast Item Unit Cost] AS FUC
-					ON PBL.[No_] = FUC.[Item No_]
+					ON '1010' + RIGHT(PBL.[No_],4) = FUC.[Item No_]
                 WHERE I.[Item Category Code] = 'RÅKAFFE' """
     df = pd.read_sql(query, bsi.con_nav)
     
@@ -177,7 +177,8 @@ def get_coffee_contracts() -> pd.DataFrame():
 			,FUC.[Forecast Unit Cost +1M], FUC.[Forecast Unit Cost +2M], FUC.[Forecast Unit Cost +3M]
 			,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%FAIR%' THEN 1 ELSE 0 END AS [Fairtrade]
 			,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%ØKO%' THEN 1 ELSE 0 END AS [Økologi]
-			,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%RFA%' THEN 1 ELSE 0 END AS [Rainforest]
+			,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%RFA%' THEN 1
+            WHEN UPPER(I.[Mærkningsordning]) LIKE '%UTZ%' THEN 1 ELSE 0 END AS [Rainforest]
 			,CASE WHEN UPPER(I.[Mærkningsordning]) = '' THEN 1 ELSE 0 END AS [Konventionel]
 			,CASE WHEN UPPER(I.[Description]) LIKE '%ROBUSTA%' THEN 'R' ELSE 'A' END AS [Kaffetype]
             FROM [dbo].[BKI foods a_s$Purchase Header] AS PH
