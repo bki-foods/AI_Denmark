@@ -13,112 +13,81 @@ import time
 start_time = time.time()
 
 # Temp variables, change to values from query
-items = list(range(8))
-requested_item = 3
-requested_proportion = 20
-# Remove the requested contract from the list of possible contracts
-items = [item for item in items if item != requested_item]
-
-
-# Dictionary with lists of possible percentages for requested item in blends. Keys indicate no of components in blend.
-udfaldsrum_requested_item = {
-     1: list([100])
-    ,2: [i for i in range(requested_proportion,96,5)]
-    ,3: [i for i in range(requested_proportion,91,5)]
-    ,4: [i for i in range(requested_proportion,86,5)]
-    ,5: [i for i in range(requested_proportion,81,5)]
-    ,6: [i for i in range(requested_proportion,76,5)]
-    ,7: [i for i in range(requested_proportion,71,5)]}
-# Dictionary with lists of possible percentages for components that are not that main component
-udfaldsrum_remaining_items = {
-     1: None
-    ,2: [i for i in range(5,101 - requested_proportion,5)]
-    ,3: [i for i in range(5,96 - requested_proportion,5)]
-    ,4: [i for i in range(5,91 - requested_proportion ,5)]
-    ,5: [i for i in range(5,86 - requested_proportion,5)]
-    ,6: [i for i in range(5,81 - requested_proportion,5)]
-    ,7: [i for i in range(5,76 - requested_proportion,5)]}
-# Dictionary with the max no of input components per blend combination
-udfaldsrum_max_components = {
-     1: 50
-    ,2: 25
-    ,3: 25
-    ,4: 11
-    ,5: 8
-    ,6: 7
-    ,7: 7}
-
-
-"""
-Ovenfor har jeg en dictionary med alle de mulige ufald af procentandele for den sort, der er anmodet om, samt dens minimum proportion.
-Kan jeg anvende den i itertools, for derefter at lave en sekundær itertools der tager højde for at det hele skal summe til 1
-"""
-
-no_components = [2,3,4,5,6,7]
-iterator = no_components[-4]
-
-# Proportion for the requested component will always be the last element in the list of proportions
-# Get all possible proportion combinations
-proportions = [list(comb) for comb in itertools.combinations_with_replacement(udfaldsrum_remaining_items[iterator], iterator -1)]
-
-# Get a list of missing proportions to sum to 100
-missing_proportion = [100 - sum(props) for props in proportions]
-
-proportions = list(zip(missing_proportion, proportions))
-
-# Append the requested component proportion to the list of proportions.
-[props[1].append(props[0]) for props in proportions]
-# Only keep the proportion combinations which sum to 100 and prop >= requested proportion
-proportions = [props[1] for props in proportions if sum(props[1]) == 100 and props[1][-1] >= requested_proportion]
-
-
-# Get all possible blend combinations
-blends = [list(contract) for contract in itertools.permutations(items, iterator -1)]
-
-
-blends = list(zip(blends, [requested_item] * len(proportions))) # TODO, not needed?
-
-# [blend[1].append(blend[0]) for blend in blends]
-for i in blends:
-    print(i[0])
-    print(i[1])
-
-# Combine proportions and contracts
-blends_prop = list(itertools.product(blends, proportions))
+items = list(range(11))
+request_item = 3
+request_proportion = 5
 
 
 
-def blend_prop_permutations(contracts: list, N_components: int) -> list:
-      
-    # Dictionary with lists of possible percentages used in blends. Keys indicate no of components in blend.
-    udfaldsrum = {
-         1: list([100])
-        ,2: [i for i in range(5,96,5)]
-        ,3: [i for i in range(5,91,5)]
-        ,4: [i for i in range(5,86,5)]
-        ,5: [i for i in range(5,81,5)]
-        ,6: [i for i in range(5,76,5)]
-        ,7: [i for i in range(5,71,5)]}
+def get_blends_with_proportions(required_item: int, min_proportion: int, available_items: list, number_of_components: int) -> list:
+
+
+    number_of_available_items = len(available_items)
+    # If a blend recommendation is requested with more components than components are available, terminate.
+    # Terminate if the theoretical amount of records to calculate across exceeds ~3 milion
+    if number_of_components > number_of_available_items or number_of_components < 2:
+        return None
+    if number_of_available_items > 16:
+        return None
+    if number_of_components == 7 and number_of_available_items > 8:
+        return None
+    if number_of_components > 5 and number_of_available_items > 10:
+        return None
+    if number_of_components > 4 and number_of_available_items > 15:
+        return None
+
+    # Dictionary with lists of possible percentages for components that are not that main component - hardcoded increments
+    ranges_proportions_remaining_items = {
+         2: [i for i in range(5,101 - min_proportion,5)]
+        ,3: [i for i in range(5,96 - min_proportion,5)]
+        ,4: [i for i in range(5,91 - min_proportion ,5)]
+        ,5: [i for i in range(5,86 - min_proportion,5)]
+        ,6: [i for i in range(5,81 - min_proportion,5)]
+        ,7: [i for i in range(5,76 - min_proportion,5)]}
+  
+    # Remove the requested contract from the list of possible contracts
+    available_items = [item for item in available_items if item != required_item]  
     
-    # Combine proportions and contracts with contracts and proportions for single component blends
-    # blends_1_final = list(itertools.product(contracts_possible[1], udfaldsrum[1]))
-    
-    # Get all possible contract permutations for blends with N components
-    blends = [contract for contract in itertools.permutations(contracts, N_components)]
-    blends = [contract for contract in blends if len(contract) == len(set(contract)) ]
+    # Proportion for the requested component will always be the last element in the list of proportions
     # Get all possible proportion combinations
-    blends_proportions = [comb for comb in itertools.combinations_with_replacement(udfaldsrum[N_components], N_components)]
-    blends_proportions = [comb for comb in blends_proportions  if sum(comb) == 100]
-
-    # Combine proportions and contracts
-    blends_final = list(itertools.product(blends, blends_proportions))
-    # Clear variables from memory
-    del blends,blends_proportions
+    proportions = [list(comb) for comb in itertools.combinations_with_replacement(ranges_proportions_remaining_items[number_of_components], number_of_components -1)]
     
-    return blends_final
+    # Create a list of missing proportions such that each blend will sum to 100
+    missing_proportions = [100 - sum(props) for props in proportions]
+    proportions = list(zip(missing_proportions, proportions))
+    # Append the requested component proportion to the list of proportions.
+    [props[1].append(props[0]) for props in proportions]
+    # Only keep the proportion combinations which sum to 100 and prop >= requested proportion
+    proportions = [props[1] for props in proportions if sum(props[1]) == 100 and props[1][-1] >= min_proportion]    
+    # Get all possible blend combinations
+    blends = [list(contract) for contract in itertools.permutations(available_items, number_of_components -1)]
+    # Add requested blend item as last value in blends to correspond with proportions
+    blends = [blend + [required_item] for blend in blends]
+    
+    # Combine proportions and contracts into final list
+    blends_prop = list(itertools.product(blends, proportions))
+    
+    # Clear variables from memory
+    del blends,proportions,missing_proportions
+    
+    return blends_prop
 
 
+for i in range(1,8):
+    xyz = get_blends_with_proportions(
+        request_item
+        ,5
+        ,items
+        ,i)
+    print("i: " + str(i) + "\n", len(xyz)) if xyz else None
 
+# =============================================================================
+# xyz = get_blends_with_proportions(
+#     request_item
+#     ,request_proportion
+#     ,items
+#     ,5)
+# =============================================================================
 
 
 
