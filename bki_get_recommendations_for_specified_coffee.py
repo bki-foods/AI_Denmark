@@ -13,8 +13,8 @@ import time
 start_time = time.time()
 
 # Temp variables, change to values from query
-items = list(range(8))
-request_item = 3
+items = [10,11,12,13,15,19,28]
+request_item = 11
 request_proportion = 5
 
 
@@ -23,7 +23,6 @@ def get_blends_with_proportions(required_item:int, min_proportion:int, available
 
     padding_placeholder = (7 - number_of_components) * [-1]
     padding_proportions = (7 - number_of_components) * [0] 
-    padding = list(zip(list(padding_placeholder), list(padding_proportions)))
 
     number_of_available_items = len(available_items)
     # If a blend recommendation is requested with more components than components are available, terminate.
@@ -42,12 +41,12 @@ def get_blends_with_proportions(required_item:int, min_proportion:int, available
     # Dictionary with lists of possible percentages for components that are not that main component - hardcoded increments
     # Min proportion of a component is 5, and all component proportions are incremented by 5.
     ranges_proportions_remaining_items = {
-         2: [i for i in range(5, 101 - min_proportion, 5)]
-        ,3: [i for i in range(5, 96 - min_proportion, 5)]
-        ,4: [i for i in range(5, 91 - min_proportion, 5)]
-        ,5: [i for i in range(5, 86 - min_proportion, 5)]
-        ,6: [i for i in range(5, 81 - min_proportion, 5)]
-        ,7: [i for i in range(5, 76 - min_proportion, 5)]}
+         2: [i / 100.0 for i in range(5, 101 - min_proportion, 5)]
+        ,3: [i / 100.0 for i in range(5, 96 - min_proportion, 5)]
+        ,4: [i / 100.0 for i in range(5, 91 - min_proportion, 5)]
+        ,5: [i / 100.0 for i in range(5, 86 - min_proportion, 5)]
+        ,6: [i / 100.0 for i in range(5, 81 - min_proportion, 5)]
+        ,7: [i / 100.0 for i in range(5, 76 - min_proportion, 5)]}
   
     # Remove the requested contract from the list of possible contracts
     available_items = [item for item in available_items if item != required_item]  
@@ -57,52 +56,53 @@ def get_blends_with_proportions(required_item:int, min_proportion:int, available
     proportions = [list(comb) for comb in itertools.combinations_with_replacement(ranges_proportions_remaining_items[number_of_components], number_of_components -1)]
     
     # Create a list of missing proportions such that each blend will sum to 100
-    missing_proportions = [100 - sum(props) for props in proportions]
+    missing_proportions = [round(1.0 - sum(props),2) for props in proportions]
     proportions = list(zip(missing_proportions, proportions))
     # Append the requested component proportion to the list of proportions.
     [props[1].append(props[0]) for props in proportions]
     # Only keep the proportion combinations which sum to 100 and prop >= requested proportion
-    proportions = [props[1] for props in proportions if sum(props[1]) == 100 and props[1][-1] >= min_proportion]    
+    proportions = [props[1] for props in proportions if sum(props[1]) == 1.0 and props[1][-1] >= min_proportion / 100.0]   
+    proportions = [props + padding_proportions for props in proportions] #TODO!
     # Get all possible blend combinations
     blends = [list(contract) for contract in itertools.permutations(available_items, number_of_components -1)]
     # Add requested blend item as last value in blends to correspond with proportions
     blends = [blend + [required_item] for blend in blends]
+    blends = [blend + padding_placeholder for blend in blends] #TODO!
     
     # Combine proportions and contracts into final list
     blends_prop = list(itertools.product(blends, proportions))
-    blends_prop = [blend + padding for blend in blends_prop]
+    blends_prop = [blend for blend in blends_prop]
     
+    blends_prop = [list(zip(blends_prop[i][0],blends_prop[i][1])) for i in range(len(blends_prop))] #TODO!
     # Clear variables from memory
     del blends,proportions,missing_proportions
     
     return blends_prop
 
 
-# for i in range(1,8):
-#     xyz = get_blends_with_proportions(
-#         request_item
-#         ,5
-#         ,items
-#         ,i)
-#     print("i: " + str(i) + "\n", len(xyz)) if xyz else None
-
-xyz = get_blends_with_proportions(
+all_blends_incl_proportions = get_blends_with_proportions(
     request_item
     ,request_proportion
     ,items
-    ,5)
+    ,4)
+
+
+def is_blend_fit(blend_profile:list, target_profile:list, cut_off_value:float) -> bool:
+    
+    return not any(abs(blend_profile - target_profile) > cut_off_value)
 
 
 def get_useable_blends(blends:list, target_flavor_profile:list, target_color:int, flavor_predictor
                        ,flavors_list, allowed_target_deviation:float = 0.5) -> list:
     
-    #TODO! padding
     #TODO! Ensure function exits if it can't run properly
     
     predicted_blend_profiles = [tpo.taste_pred(blend,flavor_predictor, flavors_list, target_color) for blend in blends]
     
+    fit_blends = [i for i in range(len(predicted_blend_profiles)) if is_blend_fit(predicted_blend_profiles[i],target_flavor_profile, 0.5)]
     
-    return predicted_blend_profiles
+    
+    return predicted_blend_profiles,fit_blends
 
 
                     # predicted_flavor_profile = tpo.taste_pred(
@@ -110,6 +110,8 @@ def get_useable_blends(blends:list, target_flavor_profile:list, target_color:int
                     #     ,flavor_predictor
                     #     ,flavors_list
                     #     ,110)
+
+
 
 # =============================================================================
 # TEMP for testing of permutations
@@ -157,11 +159,11 @@ target_flavor_list = [6,6,7,6]
 
 
 
-test_value = get_useable_blends(xyz,target_flavor_list,110,flavor_predictor,flavors_list)
+predicted_blends,good_enough_blends = get_useable_blends(all_blends_incl_proportions,target_flavor_list,110,flavor_predictor,flavors_list)
 
 
-
-
+blends_useable = [all_blends_incl_proportions[i] for i in good_enough_blends]
+blends_useable_flavors = [predicted_blends[i] for i in good_enough_blends]
 
 
 
@@ -217,7 +219,7 @@ total_time = end_time - start_time
 #Subtract Start Time from The End Time
 total_time_seconds = int(total_time) % 60
 total_time_minutes = total_time // 60
-total_time_hours = total_time // 60
+total_time_hours = total_time // 60 // 60
 execution_time = str("%d:%02d:%02d" % (total_time_hours, total_time_minutes, total_time_seconds))
 
 print(execution_time)
