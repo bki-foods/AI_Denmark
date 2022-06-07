@@ -1,86 +1,150 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import statistics
-import ti_data_preprocessing as tdp
 import bki_functions as bf
+import pandas as pd
+import numpy as np
 
 
+robusta = False
 
-ind1_collection =[  [(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
-                  ,[(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
-                  ,[(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
-                  ,[(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
-                  ,[(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
-                  ,[(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
-                  ,[(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
-                  ,[(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
-                  ,[(40, 0.16), (41, 0.06), (52, 0.38), (26, 0.4), (-1, 0), (-1, 0), (-1, 0)]
-                  ,[(40, 0.16), (41, 0.06), (52, 0.38), (26, 0.4), (-1, 0), (-1, 0), (-1, 0)]
-                  ,[(40, 0.16), (41, 0.06), (52, 0.38), (26, 0.4), (-1, 0), (-1, 0), (-1, 0)]
-                  ,[(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]]
-ind2_collection = [ [(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
-                   ,[(3, 0.06), (38, 0.18), (40, 0.6), (18, 0.07), (21, 0.09), (-1, 0), (-1, 0)]
-                   ,[(16, 0.22), (18, 0.58), (52, 0.06), (21, 0.06), (54, 0.08), (-1, 0), (-1, 0)]
-                   ,[(19, 0.66), (44, 0.12), (16, 0.08), (35, 0.07), (40, 0.07), (-1, 0), (-1, 0)]
-                   ,[(8, 0.07), (16, 0.24), (49, 0.07), (19, 0.07), (31, 0.55), (-1, 0), (-1, 0)]
-                   ,[(40, 0.25), (10, 0.34), (25, 0.06), (26, 0.29), (27, 0.06), (-1, 0), (-1, 0)]
-                   ,[(35, 0.21), (6, 0.44), (7, 0.06), (12, 0.23), (54, 0.06), (-1, 0), (-1, 0)]
-                   ,[(7, 0.07), (8, 0.09), (40, 0.11), (49, 0.37), (22, 0.36), (-1, 0), (-1, 0)]
-                   ,[(50, 0.06), (57, 0.28), (26, 0.08), (27, 0.51), (30, 0.07), (-1, 0), (-1, 0)]
-                   ,[(37, 0.16), (15, 0.11), (16, 0.2), (17, 0.14), (31, 0.39), (-1, 0), (-1, 0)]
-                   ,[(37, 0.06), (6, 0.12), (48, 0.28), (53, 0.21), (31, 0.33), (-1, 0), (-1, 0)]
-                   ,[(9, 0.16), (13, 0.2), (15, 0.31), (21, 0.17), (31, 0.16), (-1, 0), (-1, 0)]]
+# Define bar_recipes for later use to determine whether to proces on batch or production order level
+bar_recipes = ('10401005','10401207')
+# Get data for coffee contracts
+contracts = bf.get_coffee_contracts()[["Kontraktnummer", "Sort"]]
+# Get data about recipes
+recipes = bf.get_recipe_information()[["Receptnummer", "Farve sætpunkt"]].rename(columns={"Farve sætpunkt": "Farve"})
+# Get all potentially relevant roaster input (green coffee consumption)
+roaster_input = bf.get_roaster_input() \
+    [["Dato", "Produktionsordre id", "Batch id", "Kontraktnummer", "Modtagelse", "Kilo"]] \
+    .rename(columns={"Dato": "Dato_rist",
+                     "Kilo": "Kilo_rist_input"}) \
+    .dropna()
+# Get all potentially relevant roaster output
+roaster_output = bf.get_roaster_output().dropna(subset=["Ordrenummer"]).astype({"Ordrenummer": np.int64}) \
+    [["Produktionsordre id", "Batch id", "Ordrenummer", "Receptnummer", "Kilo"]] \
+    .rename(columns={"Kilo": "Kilo_rist_output",
+                     "Ordrenummer": "Ordre_rist"}) \
+    .dropna()
+# Get grades for the green coffees
+raw_grades = bf.get_gc_grades() \
+    [["Dato", "Kontraktnummer", "Modtagelse", "Syre", "Krop", "Aroma", "Eftersmag", "Robusta"]] \
+    .rename(columns={"Dato": "Dato_r",
+                     "Syre": "Syre_r",
+                     "Krop": "Krop_r",
+                     "Aroma": "Aroma_r",
+                     "Eftersmag": "Eftersmag_r",
+                     "Robusta": "Robusta_r"})
+raw_grades["Robusta_r"].fillna(10, inplace=True)
+raw_grades = raw_grades.dropna(subset=["Kontraktnummer", "Dato_r", "Syre_r", "Krop_r", "Aroma_r",
+                                       "Eftersmag_r"])
 
-no_collections = range(len(ind1_collection))
+# Get grades for the finished products
+product_grades = bf.get_finished_goods_grades() \
+    [["Dato", "Ordrenummer", "Syre", "Krop", "Aroma", "Eftersmag", "Robusta"]] \
+    .rename(columns={"Dato": "Dato_p",
+                     "Ordrenummer": "Ordre_p",
+                     "Syre": "Syre_p",
+                     "Krop": "Krop_p",
+                     "Aroma": "Aroma_p",
+                     "Eftersmag": "Eftersmag_p",
+                     "Robusta": "Robusta_p"})
+product_grades["Robusta_p"] = product_grades["Robusta_p"].fillna(10)
+product_grades = product_grades.dropna() \
+    .drop_duplicates(subset=["Ordre_p", "Syre_p", "Krop_p", "Aroma_p","Eftersmag_p"]) \
+    .astype({"Ordre_p": np.int64})
 
-ind1 = [(9, 0.06), (13, 0.3), (15, 0.21), (21, 0.27), (31, 0.16), (-1, 0), (-1, 0)]
-ind2 = [(9, 0.16), (13, 0.2), (15, 0.31), (21, 0.17), (31, 0.16), (-1, 0), (-1, 0)]
+# Remove robusta columns from dataset if they are not be used for training the model    
+if not robusta:
+    raw_grades.drop("Robusta_r", inplace=True, axis=1)
+    product_grades.drop("Robusta_p", inplace=True, axis=1)
 
+product_grades["Smagningsid"] = list(range(len(product_grades)))
 
-def equal_blends(ind1, ind2):
-    #TODO: Blends er identiske hvis de indeholder de samme kontrakter, uagtet proportionerne
-    comp1 = [ind1[i][0] for i in range(len(ind1)) if ind1[i][0] != -1]
-    comp2 = [ind2[i][0] for i in range(len(ind2)) if ind2[i][0] != -1]
-    return set(comp1) == set(comp2)
+# Get data for the relationships between orders
+orders = bf.get_order_relationships() \
+    .rename(columns={"Ordre": "Ordre_p",
+                     "Relateret ordre": "Ordre_rist"}) \
+    .dropna().astype({'Ordre_p': np.int64,'Ordre_rist': np.int64})
 
-def blends_too_equal(blend1, blend2) -> bool:
-    """
-    Compares two proposed blends of coffees. If they do not contain exactly the same components,
-    they are deemed different. If they contain the exact same components, they are deemed different enough
-    if any of the ABS differences in proportions are >= 0.1.
-    Returns bool
-    """
-    
-    # Get list of components in each blend, -1 to remove placeholder values
-    blend_1_components = [blend1[i][0] for i in range(len(blend1)) if blend1[i][0] != -1]
-    blend_2_components = [blend2[i][0] for i in range(len(blend2)) if blend2[i][0] != -1]
-    # Do blends contain same items. If not they are different already
-    blends_too_equal = set(blend_1_components) == set(blend_2_components)
-    # If both blends contain same items, compare proportions
-    if blends_too_equal:
-        # Get lists of proportions for each blend
-        blend_1_proportions = [blend1[i][1]  for i in range(len(blend1)) if blend1[i][0] != -1]
-        blend_2_proportions = [blend2[i][1]  for i in range(len(blend2)) if blend2[i][0] != -1]
-        # Get the ABS difference between the blends. Round to prevent issues with floats
-        blends_differences = [round(abs(b1 - b2),2) for b1, b2 in zip(blend_1_proportions, blend_2_proportions)]
-        # # Blends are different enough if the mean ABS change is >= 0.1 across components
-        # blends_different_enough = ( sum(blends_differences) / len(blend_1_components) ) >= 0.1
-        # Blends are different enough if any component has had its proportion changed by 0.1 or more
-        # blends_too_equal = not any(diff >= 0.1 for diff in blends_differences)
-        blends_too_equal = statistics.mean(blends_differences) < 0.05
-    return blends_too_equal
+# Merge all relevant tables
+roaster_output = pd.merge(roaster_output, recipes, on="Receptnummer")
 
+res = pd.merge(product_grades, orders, on="Ordre_p")
+res2 = pd.merge(roaster_output, res, on="Ordre_rist")
+res3 = pd.merge(roaster_input, res2, on=["Produktionsordre id", "Batch id"])
+res4 = pd.merge(contracts, res3, on=["Kontraktnummer"])
+res5 = pd.merge(raw_grades, res4, on=["Kontraktnummer", "Modtagelse"], how="right")
+raw_success = pd.merge(raw_grades, res4, on=["Kontraktnummer", "Modtagelse"], how="inner")
+#TODO HER!! tilføjet robusta_r
+missing_raw = res5[res5["Syre_r"].isna()] \
+    .drop(columns=["Dato_r", "Modtagelse", "Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r"]) \
+    .drop_duplicates()
+if robusta: # changed from if not robusta --> if robusta
+    missing_raw.drop("Robusta_r", inplace=True, axis=1)
 
-for i in no_collections:
-    print("i: ",i, "\torg: " ,equal_blends(ind1_collection[i], ind2_collection[i]), "\tnew: ", blends_too_equal(ind1_collection[i], ind2_collection[i]))
+# If no kontrakt/modtagelse has been defined, use data for the last kontrakt graded before the roasting date
+found_raw = pd.merge(missing_raw, raw_grades, on="Kontraktnummer")
+found_raw = found_raw[found_raw["Dato_r"] < found_raw["Dato_rist"]] \
+    .sort_values("Dato_r", ascending=False) \
+    .drop_duplicates(subset=["Kontraktnummer", "Produktionsordre id", "Batch id", "Ordre_rist", "Ordre_p"])
 
+filtered_data = pd.concat([raw_success, found_raw]).sort_values("Dato_r", ascending=False) \
+    .drop_duplicates(subset=["Kontraktnummer", "Modtagelse", "Produktionsordre id", "Batch id",
+                             "Ordre_rist", "Ordre_p", "Kilo_rist_input"])
 
-# Blend 0 skal være True i new, blend 11 skal være true i org, false i NEW
+tasting_ids = list(set(filtered_data["Smagningsid"]))
 
+# =============================================================================
+#     TEMP_DF_NAN = filtered_data[filtered_data[["Robusta_r","Robusta_p"]].isna().any(axis=1)]
+#     print(TEMP_DF_NAN)
+#     return TEMP_DF_NAN
+# =============================================================================
 
+X_list = []
+Y_list = []
 
+for t_id in tasting_ids:
+    tasting_data = filtered_data[filtered_data["Smagningsid"] == t_id]
+    batch_ids = list(set(tasting_data["Batch id"]))
+    prod_ids = list(set(tasting_data["Produktionsordre id"]))
 
-# df_roaster_input = bf.get_roaster_input()
+    # If the produced recipes are used for BAR blends, do the analysis on "Produktionsordre"-level # Weigh 10401005/10401207 as 2/3 and 1/3
+    if not set(tasting_data['Receptnummer']).isdisjoint(bar_recipes):
+        for p_id in prod_ids:
+            prod_data = tasting_data[tasting_data["Produktionsordre id"] == p_id]
+            full_prod = roaster_input[roaster_input["Produktionsordre id"] == p_id]
+            weight_tasted_prod = sum(prod_data["Kilo_rist_input"])
+            weight_full_prod = sum(full_prod["Kilo_rist_input"])
+
+            if 1.0 - weight_tasted_prod / weight_full_prod < 0.1: #Use data if we have data for 90% of the production order
+                weight_per_contract = prod_data[["Kontraktnummer", "Modtagelse", "Kilo_rist_input"]] \
+                    .groupby(["Kontraktnummer", "Modtagelse"]).sum()
+                unique_contracts = prod_data.groupby(["Kontraktnummer", "Modtagelse"]).mean()
+
+                if 0 < len(unique_contracts) <= 7: # Only use data if we have 7 or fewer unique contracts used in the order, to ensure same dimensions as our input in the model
+                    unique_contracts["Proportion"] = weight_per_contract["Kilo_rist_input"] / \
+                                                     sum(weight_per_contract["Kilo_rist_input"])
+
+                    if robusta:
+                        x_data = unique_contracts[
+                            ["Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r", "Robusta_r", "Proportion"]]
+                        y_data = unique_contracts[["Syre_p", "Krop_p", "Aroma_p", "Eftersmag_p", "Robusta_p"]][0:1]
+                    else:
+                        x_data = unique_contracts[["Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r", "Proportion"]]
+                        y_data = unique_contracts[["Syre_p", "Krop_p", "Aroma_p", "Eftersmag_p"]][0:1]
+
+                    x_np = x_data.to_numpy()
+                    y_np = y_data.to_numpy()
+                    if len(unique_contracts) < 7:
+                        x_np = np.pad(x_np, constant_values=0, pad_width=[[0, 7 - len(unique_contracts)], [0, 0]])
+
+                    farve = unique_contracts[["Farve"]][0:1].to_numpy()
+                    X_list.append(np.append(x_np.flatten(), farve))
+                    Y_list.append(y_np.flatten())
+
+# return np.array(X_list), np.array(Y_list)
+
+# temp_df = get_blend_grade_data(robusta=True)
 
 
