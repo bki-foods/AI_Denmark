@@ -633,6 +633,10 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
     df["Krop"] = df["Krop_x"].combine_first(df["Krop_y"]).combine_first(df["Krop"])
     df["Eftersmag"] = df["Eftersmag_x"].combine_first(df["Eftersmag_y"]).combine_first(df["Eftersmag"])
     df["Robusta"] = df["Robusta_x"].combine_first(df["Robusta_y"]).combine_first(df["Robusta"])
+    # Remove rows with na, we need values for all parameters. Reset index afterwards
+    df.dropna(subset=["Syre","Aroma","Krop","Eftersmag"],inplace=True)
+    df["Robusta"].fillna(10, inplace=True)
+    df.reset_index(drop=True, inplace=True)
     # Add information regarding certifications of each contract
     df_contract_info = get_coffee_contracts()
     df = pd.merge(
