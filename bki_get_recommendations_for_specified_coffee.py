@@ -3,7 +3,6 @@
 
 import itertools
 import joblib
-import random
 import bki_functions as bf
 import ti_price_opt as tpo
 import time
@@ -13,8 +12,8 @@ import time
 start_time = time.time()
 
 # Temp variables, change to values from query
-items = [10,11,12,13,15,19,28]
-request_item = 11
+items = [1,2,10,11,12,13,15,19,28]
+request_item = 10
 request_proportion = 5
 
 
@@ -62,54 +61,73 @@ def get_blends_with_proportions(required_item:int, min_proportion:int, available
     [props[1].append(props[0]) for props in proportions]
     # Only keep the proportion combinations which sum to 100 and prop >= requested proportion
     proportions = [props[1] for props in proportions if sum(props[1]) == 1.0 and props[1][-1] >= min_proportion / 100.0]   
-    proportions = [props + padding_proportions for props in proportions] #TODO!
+    proportions = [props + padding_proportions for props in proportions]
     # Get all possible blend combinations
     blends = [list(contract) for contract in itertools.permutations(available_items, number_of_components -1)]
     # Add requested blend item as last value in blends to correspond with proportions
     blends = [blend + [required_item] for blend in blends]
-    blends = [blend + padding_placeholder for blend in blends] #TODO!
+    blends = [blend + padding_placeholder for blend in blends]
     
     # Combine proportions and contracts into final list
     blends_prop = list(itertools.product(blends, proportions))
     blends_prop = [blend for blend in blends_prop]
     
-    blends_prop = [list(zip(blends_prop[i][0],blends_prop[i][1])) for i in range(len(blends_prop))] #TODO!
+    blends_prop = [list(zip(blends_prop[i][0],blends_prop[i][1])) for i in range(len(blends_prop))]
     # Clear variables from memory
-    del blends,proportions,missing_proportions
+    # del blends,proportions,missing_proportions
     
     return blends_prop
 
 
-all_blends_incl_proportions = get_blends_with_proportions(
-    request_item
-    ,request_proportion
-    ,items
-    ,4)
+def get_best_fitting_blends(blends, prices, flavor_model, flavors_components, target_flavor, target_color, no_return_values=50)->list:
+    """
+    
+
+    Parameters
+    ----------
+    blends :
+        A list containing all the blends to be evaluated containing index no of component and its proportion.
+        Each blend must be 7 components long. Use -1 as placeholder for NULL components with a proportion of 0.
+    prices :
+        A list of prices for all possible components.
+    flavor_model :
+        A trained model used to predict the flavor of each blend.
+    flavors_components :
+        A list with all the flavor profiles of all possible components.
+    target_flavor :
+        The Target flavor which is requested
+    target_color : int
+        The color which the blends are expected to be roasted to
+    no_return_values :
+        The number of proposed blends which are to be returned.
+        The default value is 50.
+
+    Returns
+    -------
+    A list with the top N best fitting blends.
+
+    """
+    
+    # Create a list of fitness values for each of the  input blends using the tpo function from main script.
+    predicted_fitness = [float(tpo.blend_fitness(
+        blends[i]
+        ,prices
+        ,flavor_model
+        ,flavors_components
+        ,target_flavor
+        ,target_color)) for i in range(len(blends))]
+    # Sort the fitness list and limit it to a top N list
+    predicted_fitness_top_list = sorted(predicted_fitness,reverse=True)[:no_return_values]
+    # Create a list with the blends which have a fitness value present in the top 50 list
+    interesting_blends = [i for i in range(len(predicted_fitness)) if predicted_fitness[i] in predicted_fitness_top_list]
+    # Filtered list with the top N best fitting blends
+    interesting_blends = [blends[i] for i in interesting_blends]
+
+    return interesting_blends
 
 
-def is_blend_fit(blend_profile:list, target_profile:list, cut_off_value:float) -> bool:
-    
-    return not any(abs(blend_profile - target_profile) > cut_off_value)
 
 
-def get_useable_blends(blends:list, target_flavor_profile:list, target_color:int, flavor_predictor
-                       ,flavors_list, allowed_target_deviation:float = 0.5) -> list:
-    
-    #TODO! Ensure function exits if it can't run properly
-    
-    predicted_blend_profiles = [tpo.taste_pred(blend,flavor_predictor, flavors_list, target_color) for blend in blends]
-    
-    fit_blends = [i for i in range(len(predicted_blend_profiles)) if is_blend_fit(predicted_blend_profiles[i],target_flavor_profile, 0.5)]
-    
-    
-    return predicted_blend_profiles,fit_blends
-
-
-                    # predicted_flavor_profile = tpo.taste_pred(
-                    #     blend
-                    #     ,flavor_predictor
-                    #     ,flavors_list
-                    #     ,110)
 
 
 
@@ -154,19 +172,46 @@ flavor_predictor = joblib.load(model_name)
 flavor_columns = ["Syre","Aroma","Krop","Eftersmag"]
 flavors_list = df_available_coffee[flavor_columns].to_numpy()
 target_flavor_list = [6,6,7,6]
+target_color = 110
+contract_prices_list = df_available_coffee["Standard Cost"].to_numpy().reshape(-1, 1)
+# =============================================================================
+# TEMP test data above for testing functions
+# =============================================================================
 
 
 
 
 
-predicted_blends,good_enough_blends = get_useable_blends(all_blends_incl_proportions,target_flavor_list,110,flavor_predictor,flavors_list)
+all_blends_incl_proportions = get_blends_with_proportions(
+    request_item
+    ,request_proportion
+    ,items
+    ,4)
 
 
-blends_useable = [all_blends_incl_proportions[i] for i in good_enough_blends]
-blends_useable_flavors = [predicted_blends[i] for i in good_enough_blends]
+
+best_fitting_blends = get_best_fitting_blends(
+    all_blends_incl_proportions
+    ,contract_prices_list
+    ,flavor_predictor
+    ,flavors_list
+    ,target_flavor_list
+    ,target_color
+    ,50)
 
 
-
+# =============================================================================
+# predicted_fitness = [float(tpo.blend_fitness(
+#     all_blends_incl_proportions[i]
+#     ,contract_prices_list
+#     ,flavor_predictor
+#     ,flavors_list
+#     ,target_flavor_list
+#     ,target_color)) for i in range(len(all_blends_incl_proportions))]
+# predicted_fitness_top_list = sorted(predicted_fitness,reverse=True)[:50]
+# interesting_blends = [i for i in range(len(predicted_fitness)) if predicted_fitness[i] in predicted_fitness_top_list]
+# interesting_blends = [all_blends_incl_proportions[i] for i in interesting_blends]
+# =============================================================================
 
 
 
