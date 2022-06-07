@@ -13,7 +13,7 @@ import time
 start_time = time.time()
 
 
-contracts = [2,13,56,62,86,20,48,9,11,79,10,34,12,72,71,16,33,4,36,67,47,41]
+contracts = [0,1,2,3,4,5,6,7,8,9]
 
 
 def blend_prop_permutations(contracts: list, N_components: int) -> list:
@@ -136,7 +136,8 @@ dict_certifications = {
 df_available_coffee = bf.get_all_available_quantities(
     dict_locations
     ,min_quantity
-    ,dict_certifications)
+    ,dict_certifications
+    ,True)
 # Remove rows with na, we need values for all parameters. Reset index afterwards
 df_available_coffee.dropna(subset=["Syre","Aroma","Krop","Eftersmag"],inplace=True)
 df_available_coffee.reset_index(drop=True, inplace=True)
