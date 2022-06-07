@@ -61,12 +61,8 @@ column_order_available_coffee = ["Kontraktnummer","Modtagelse","Lokation","Behol
                                  ,"Sort","Varenavn","Screensize","Oprindelsesland","Mærkningsordning"]
 df_available_coffee = df_available_coffee[column_order_available_coffee]
 # Replace all na values for robusta with 10 if algorithm is to predict this, otherwise remove it
-if predict_robusta:
-    df_available_coffee["Robusta"].fillna(10, inplace=True)
-else:
+if not predict_robusta:
     df_available_coffee.drop("Robusta", inplace=True, axis=1)
-# Remove rows with na, we need values for all parameters. Reset index afterwards
-df_available_coffee.dropna(subset=["Syre","Aroma","Krop","Eftersmag"],inplace=True)
 df_available_coffee.reset_index(drop=True, inplace=True)
 # Add dataframe index to a column to use for join later on
 df_available_coffee["Kontrakt_id"] = df_available_coffee.index
@@ -103,6 +99,7 @@ wb_name = f"Receptforslag_{request_id}.xlsx"
 path_file_wb = bsi.filepath_report + r"\\" + wb_name
 excel_writer = pd.ExcelWriter(path_file_wb, engine="xlsxwriter")
 
+# SHEET 1
 # Suggested blends, hall of fame
 df_blend_suggestions = pd.DataFrame(columns=["Blend_nr","Kontraktnummer_index","Proportion"])   
 # Create iterator to create a blend number for each complete blend suggestion
@@ -144,6 +141,7 @@ bf.insert_dataframe_into_excel(
     ,df_blend_suggestions[blend_suggestion_columns]
     ,"Blend forslag")
 
+# SHEET 2
 # Sumarized blend suggestions with total cost
 df_blend_suggestions_summarized = df_blend_suggestions.groupby(["Blend_nr"],dropna=False) \
                                                       .agg({"Beregnet pris": "sum"
@@ -197,11 +195,14 @@ bf.insert_dataframe_into_excel(
     ,df_blend_suggestions_summarized
     ,"Blend forslag opsummeret")
 
+# SHEET 3/4
 # Green coffee input, insert into workbook
 bf.insert_dataframe_into_excel(
     excel_writer
     ,df_available_coffee
     ,"Kaffekontrakter input")
+
+# SHEET 4/5
 # Similar/identical blends, insert into workbook
 bf.insert_dataframe_into_excel(
     excel_writer
