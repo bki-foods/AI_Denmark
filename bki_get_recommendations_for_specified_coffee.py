@@ -6,20 +6,24 @@ import joblib
 import bki_functions as bf
 import ti_price_opt as tpo
 import time
+import pandas as pd
+
+
 
 
 # Grab Currrent Time Before Running the Code for logging of total execution time
 start_time = time.time()
 
 # Temp variables, change to values from query
-items = [1,2,10,11,12,13,15,19,28]
-request_item = 10
+items = [0,1,2,3,4,5,6,7]
+request_item = 5 # Prime A
 request_proportion = 5
 
 
 
 def get_blends_with_proportions(required_item:int, min_proportion:int, available_items:list, number_of_components:int) -> list:
 
+    # Create padding for component index and their proportions to ensure all blends have the required dimensions
     padding_placeholder = (7 - number_of_components) * [-1]
     padding_proportions = (7 - number_of_components) * [0] 
 
@@ -27,15 +31,13 @@ def get_blends_with_proportions(required_item:int, min_proportion:int, available
     # If a blend recommendation is requested with more components than components are available, terminate.
     # Terminate if the theoretical amount of records to calculate across exceeds ~3 milion
     if number_of_components > number_of_available_items or number_of_components < 2:
-        return None
-    if number_of_available_items > 16:
-        return None
-    if number_of_components == 7 and number_of_available_items > 8:
-        return None
+        return []
+    if number_of_components > 6 and number_of_available_items > 8:
+        return []
     if number_of_components > 5 and number_of_available_items > 10:
-        return None
+        return []
     if number_of_components > 4 and number_of_available_items > 15:
-        return None
+        return []
 
     # Dictionary with lists of possible percentages for components that are not that main component - hardcoded increments
     # Min proportion of a component is 5, and all component proportions are incremented by 5.
@@ -70,16 +72,13 @@ def get_blends_with_proportions(required_item:int, min_proportion:int, available
     
     # Combine proportions and contracts into final list
     blends_prop = list(itertools.product(blends, proportions))
-    blends_prop = [blend for blend in blends_prop]
-    
     blends_prop = [list(zip(blends_prop[i][0],blends_prop[i][1])) for i in range(len(blends_prop))]
-    # Clear variables from memory
-    # del blends,proportions,missing_proportions
+    blends_prop = [blend for blend in blends_prop]  
     
     return blends_prop
 
 
-def get_best_fitting_blends(blends, prices, flavor_model, flavors_components, target_flavor, target_color, no_return_values=50)->list:
+def get_fitting_blends(blends, prices, flavor_model, flavors_components, target_flavor, target_color:int, cut_off_value:float = 0.75)->list:
     """
     
 
@@ -98,36 +97,42 @@ def get_best_fitting_blends(blends, prices, flavor_model, flavors_components, ta
         The Target flavor which is requested
     target_color : int
         The color which the blends are expected to be roasted to
-    no_return_values :
-        The number of proposed blends which are to be returned.
-        The default value is 50.
+    cut_off_value : float
 
     Returns
     -------
-    A list with the top N best fitting blends.
+    A list with the blends that have no differences to the target flavor profile greater than the cuf_off_value
 
     """
     
+    blends_flavor_diffs = [tpo.taste_diff(blend, flavor_model, flavors_components, target_flavor, target_color).tolist() for blend in blends]
+    blends_flavor_diffs = [max(blend[0]) for blend in blends_flavor_diffs]
+
+    blends_with_close_enough_flavor = [i for i,val in enumerate(blends_flavor_diffs) if not val > cut_off_value]
+
+    interesting_blends = [blends[i] for i in blends_with_close_enough_flavor]
+
+
     # Create a list of fitness values for each of the  input blends using the tpo function from main script.
-    predicted_fitness = [float(tpo.blend_fitness(
-        blends[i]
-        ,prices
-        ,flavor_model
-        ,flavors_components
-        ,target_flavor
-        ,target_color)) for i in range(len(blends))]
-    # Sort the fitness list and limit it to a top N list
-    predicted_fitness_top_list = sorted(predicted_fitness,reverse=True)[:no_return_values]
-    # Create a list with the blends which have a fitness value present in the top 50 list
-    interesting_blends = [i for i in range(len(predicted_fitness)) if predicted_fitness[i] in predicted_fitness_top_list]
-    # Filtered list with the top N best fitting blends
-    interesting_blends = [blends[i] for i in interesting_blends]
-
-    return interesting_blends
+    predicted_fitness = [tpo.blend_fitness(
+         blend
+         ,prices
+         ,flavor_model
+         ,flavors_components
+         ,target_flavor
+         ,target_color).tolist() for blend in interesting_blends]
+    predicted_fitness = [val[0] for val in predicted_fitness]
+    
+    return interesting_blends,predicted_fitness
 
 
 
-
+def data_chunker(data:list, chunk_size:int=2000) -> list:
+    while data:
+        chunk = data[:chunk_size]
+        data = data[chunk_size:]
+        
+        yield chunk
 
 
 
@@ -137,8 +142,8 @@ def get_best_fitting_blends(blends, prices, flavor_model, flavors_components, ta
 # Add locations to dictionary for later
 dict_locations = {
     "SILOER": 1
-    ,"WAREHOUSE": 1
-    ,"AARHUSHAVN": 1
+    ,"WAREHOUSE": 0
+    ,"AARHUSHAVN": 0
     ,"SPOT": 0
     ,"AFLOAT": 0
     ,"UDLAND": 0}
@@ -149,10 +154,10 @@ min_quantity = 1000
 
 # Different types of certifications
 dict_certifications = {
-    "Sammensætning": "Blandet"
-    ,"Fairtrade": 1
-    ,"Økologi": 1
-    ,"Rainforest": 1
+    "Sammensætning": "Ren arabica"
+    ,"Fairtrade": 0
+    ,"Økologi": 0
+    ,"Rainforest": 0
     ,"Konventionel": 1}
 
 
@@ -165,6 +170,8 @@ df_available_coffee = bf.get_all_available_quantities(
 # Remove rows with na, we need values for all parameters. Reset index afterwards
 df_available_coffee.dropna(subset=["Syre","Aroma","Krop","Eftersmag"],inplace=True)
 df_available_coffee.reset_index(drop=True, inplace=True)
+# Add dataframe index to a column to use for join later on
+df_available_coffee["Kontrakt_id"] = df_available_coffee.index
 contracts_list = df_available_coffee["Kontraktnummer"].to_list()
 # model for flavor predictor
 model_name = "flavor_predictor_no_robusta.sav"
@@ -180,52 +187,102 @@ contract_prices_list = df_available_coffee["Standard Cost"].to_numpy().reshape(-
 
 
 
+best_fitting_blends = []
+best_fitting_fitness = []
 
 
-all_blends_incl_proportions = get_blends_with_proportions(
-    request_item
-    ,request_proportion
-    ,items
-    ,4)
+# for i in [2,3,4,5,6,7]:
+for i in [2,3,4,5,6,7]:
+    all_blends_incl_proportions = get_blends_with_proportions(
+        request_item
+        ,request_proportion
+        ,items
+        ,i)
+    
+    print("Components: " + str(i), "Possible blends: " + str(len(all_blends_incl_proportions)))
+    
+    
+    if len(all_blends_incl_proportions) > 0:
+        new_blends, new_fitness = get_fitting_blends(
+            all_blends_incl_proportions
+            ,contract_prices_list
+            ,flavor_predictor
+            ,flavors_list
+            ,target_flavor_list
+            ,target_color)
+        if len(new_blends):
+            best_fitting_blends.extend([blend for blend in new_blends])
+            best_fitting_fitness.extend([fitness for fitness in new_fitness])
+
+
+    print("Runtime seconds: " + str(int(time.time() - start_time)))
+    print("No of fitting blends after run:", len(new_blends))
+
+# best_fitting_blends = [blend for blend in best_fitting_blends]
+
+# =============================================================================
+# # Suggested blends, hall of fame
+# df_tester = pd.DataFrame(columns=["Blend_nr","Kontraktnummer_index","Proportion"])   
+# # Create iterator to create a blend number for each complete blend suggestion
+# blend_no = 1000
+# # Nested lists and tuples, format: [[(),(),()],[(),(),()],[(),(),()]]
+# for blend in best_fitting_blends:
+#     blend_no += 1
+#     for component_line in blend:
+#         if not component_line[0] == -1: # -1 indicates a NULL placeholder value, these are ignored
+#             con_ix = component_line[0]
+#             # Extract data for each component line for each blend suggestion and append to dataframe
+#             data = {"Blend_nr": blend_no
+#                     ,"Kontraktnummer_index": con_ix
+#                     ,"Proportion": component_line[1]}
+#             df_tester = df_tester.append(data, ignore_index = True)
+# =============================================================================
 
 
 
-best_fitting_blends = get_best_fitting_blends(
-    all_blends_incl_proportions
-    ,contract_prices_list
-    ,flavor_predictor
-    ,flavors_list
-    ,target_flavor_list
-    ,target_color
-    ,50)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # =============================================================================
-# predicted_fitness = [float(tpo.blend_fitness(
-#     all_blends_incl_proportions[i]
-#     ,contract_prices_list
-#     ,flavor_predictor
-#     ,flavors_list
-#     ,target_flavor_list
-#     ,target_color)) for i in range(len(all_blends_incl_proportions))]
-# predicted_fitness_top_list = sorted(predicted_fitness,reverse=True)[:50]
-# interesting_blends = [i for i in range(len(predicted_fitness)) if predicted_fitness[i] in predicted_fitness_top_list]
-# interesting_blends = [all_blends_incl_proportions[i] for i in interesting_blends]
+# 
+# 
+# # Merge blend suggestions with input available coffees to add additional info to datafarme, and alter column order
+# df_tester = pd.merge(
+#     left = df_tester
+#     ,right = df_available_coffee
+#     ,how = "left"
+#     ,left_on= "Kontraktnummer_index"
+#     ,right_on = "Kontrakt_id")
+# # Calculate blend cost per component using the standard cost price of each component
+# df_tester["Beregnet pris"] = df_tester["Proportion"] * df_tester["Standard Cost"]
+# df_tester["Beregnet pris +1M"] = df_tester["Proportion"] * df_tester["Forecast Unit Cost +1M"]
+# df_tester["Beregnet pris +2M"] = df_tester["Proportion"] * df_tester["Forecast Unit Cost +2M"]
+# df_tester["Beregnet pris +3M"] = df_tester["Proportion"] * df_tester["Forecast Unit Cost +3M"]
+# 
+# 
+# # Defined column order for final dataframe, only add robusta if it is to be predicted.
+# blend_suggestion_columns = ["Blend_nr" ,"Sort","Varenavn" ,"Proportion"
+#                             ,"Beregnet pris" ,"Beregnet pris +1M"
+#                             ,"Beregnet pris +2M", "Beregnet pris +3M"]
+# 
+# df_tester = df_tester[blend_suggestion_columns]
 # =============================================================================
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -268,4 +325,6 @@ total_time_hours = total_time // 60 // 60
 execution_time = str("%d:%02d:%02d" % (total_time_hours, total_time_minutes, total_time_seconds))
 
 print(execution_time)
+print(total_time)
+
 
