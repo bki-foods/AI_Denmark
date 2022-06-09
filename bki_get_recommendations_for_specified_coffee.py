@@ -227,54 +227,55 @@ contract_prices_list = df_available_coffee["Standard Cost"].to_numpy().reshape(-
 # =============================================================================
 
 
+best_fitting_hof = []
+best_fitting_hof_size = 50
 
-best_fitting_blends = []
-best_fitting_fitness = []
+best_fitting_blends,best_fitting_fitness,blend_numbers = get_fitting_blends_complete_list(
+    request_item
+    ,request_proportion
+    ,items
+    ,contract_prices_list
+    ,flavor_predictor
+    ,flavors_list
+    ,target_flavor_list
+    ,target_color)
+
+blends_with_fitness = list(zip(best_fitting_blends,best_fitting_fitness))
 
 
-# for i in [2,3,4,5,6,7]:
-for i in [2,3]:
-    all_blends_incl_proportions = get_blends_with_proportions(
-        request_item
-        ,request_proportion
-        ,items
-        ,i)
+while blend_numbers:
+    # Add blend no to variable and remove from list, looking to exhaust
+    blend_no = blend_numbers[0]
+    del blend_numbers[0]
     
-    print("Components: " + str(i) + "\n" "Possible blends: " + str(len(all_blends_incl_proportions)))
+    # If hof is empty, add the first blend to hof by default
+    if not best_fitting_hof:
+        best_fitting_hof.append(blend_no)
+    # Check if any of the blends in the hof are too similar to the current blend
+    blend_similar_to_hof = [tpo.blends_too_similar(best_fitting_blends[blend_no], best_fitting_blends[hof_blend]) for hof_blend in best_fitting_hof]
+    # Get all fitness values of hof
+    hof_fitness_total = [best_fitting_fitness[blend] for blend in best_fitting_hof]
+    if not any(blend_similar_to_hof):
+        # If hof has not reached max size yet, add the blend
+        if len(best_fitting_hof) < best_fitting_hof_size:
+            best_fitting_hof.append(blend_no)
+        # If hof has reached max size, evaluate fitness value of current blend and 
+        else:
+            min_fitness_hof = min(hof_fitness_total)
+            # If fitness of current blend is higher than the lowest in hof, replace
+            if best_fitting_fitness[blend_no] > min_fitness_hof:
+                # Get the index of the worst fitness value
+                ix_worst_fitness = hof_fitness_total.index(min_fitness_hof)
+                # Replace worst fitness with current blend
+                best_fitting_hof[ix_worst_fitness] = blend_no
+    # If current blend is similar to one or more in hof, we need to compare fitness values of these
+    else:
+        min_fitness_hof_similar = [hof_fitness_total[i] if blend_similar_to_hof[i] else 999 for i in range(len(best_fitting_hof))]
+        
     
     
-    if len(all_blends_incl_proportions) > 0:
-        new_blends, new_fitness = get_fitting_blends(
-            all_blends_incl_proportions
-            ,contract_prices_list
-            ,flavor_predictor
-            ,flavors_list
-            ,target_flavor_list
-            ,target_color)
-        if len(new_blends):
-            best_fitting_blends.extend([blend for blend in new_blends])
-            best_fitting_fitness.extend([fitness for fitness in new_fitness])
+# any([best_fitting_fitness[blend_no] for blend_no in best_fitting_hof]) 
 
-
-    print("No. of fitting blends after run: " + str(len(new_blends)))
-    print("Runtime seconds: " + str(int(time.time() - start_time)))
-    print("---------------------------------------------------------")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# best_fitting_blends = [blend for blend in best_fitting_blends]
 
 # =============================================================================
 # # Suggested blends, hall of fame
@@ -381,6 +382,6 @@ total_time_hours = total_time // 60 // 60
 execution_time = str("%d:%02d:%02d" % (total_time_hours, total_time_minutes, total_time_seconds))
 
 print(execution_time)
-print(total_time)
+print(round(total_time,2))
 
 
