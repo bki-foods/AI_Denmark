@@ -14,7 +14,7 @@ import pandas as pd
 # Grab Currrent Time Before Running the Code for logging of total execution time
 start_time = time.time()
 
-# Temp variables, change to values from query
+# Temp variables, change to values from query #TODO!
 items = [0,1,2,3,4,5,6,7]
 request_item = 5 # Prime A
 request_proportion = 5
@@ -22,7 +22,8 @@ request_proportion = 5
 
 
 def get_blends_with_proportions(required_item:int, min_proportion:int, available_items:list, number_of_components:int) -> list:
-
+    #TODO! Docstring!!!
+    
     # Create padding for component index and their proportions to ensure all blends have the required dimensions
     padding_placeholder = (7 - number_of_components) * [-1]
     padding_proportions = (7 - number_of_components) * [0] 
@@ -80,7 +81,7 @@ def get_blends_with_proportions(required_item:int, min_proportion:int, available
 
 def get_fitting_blends(blends, prices, flavor_model, flavors_components, target_flavor, target_color:int, cut_off_value:float = 0.75)->list:
     """
-    
+    #TODO!!
 
     Parameters
     ----------
@@ -104,16 +105,16 @@ def get_fitting_blends(blends, prices, flavor_model, flavors_components, target_
     A list with the blends that have no differences to the target flavor profile greater than the cuf_off_value
 
     """
-    
+    # Create a list of calculated diffs in predicted flavor profile when compared to the target
     blends_flavor_diffs = [tpo.taste_diff(blend, flavor_model, flavors_components, target_flavor, target_color).tolist() for blend in blends]
+    # Get the largest diff for each blend
     blends_flavor_diffs = [max(blend[0]) for blend in blends_flavor_diffs]
-
+    
+    # Get the index values for all blends whose largest flavor diff does not exceed the cuf off value, create a list with actual blends
     blends_with_close_enough_flavor = [i for i,val in enumerate(blends_flavor_diffs) if not val > cut_off_value]
-
     interesting_blends = [blends[i] for i in blends_with_close_enough_flavor]
 
-
-    # Create a list of fitness values for each of the  input blends using the tpo function from main script.
+    # Create a list of fitness values for each of the  input blends
     predicted_fitness = [tpo.blend_fitness(
          blend
          ,prices
@@ -127,14 +128,54 @@ def get_fitting_blends(blends, prices, flavor_model, flavors_components, target_
 
 
 
+def get_fitting_blends_complete_list(required_item:int, min_proportion:int, available_items:list, prices
+                                     ,flavor_model, flavors_components, target_flavor:list
+                                     ,target_color:int, cut_off_value:float = 0.75) ->list:
+    #TODO! Docstring
+    best_fitting_blends = []
+    best_fitting_fitness = []
+    
+    # Use the number of components as iterator    
+    for i in [2,3]: #[2,3,4,5,6,7]
+        all_blends_incl_proportions = get_blends_with_proportions(
+            required_item
+            ,min_proportion
+            ,available_items
+            ,i)
+        
+        print("Components: " + str(i) + "\n" "Possible blends: " + str(len(all_blends_incl_proportions)))
+        
+        # If data exists, get all blends that are within cut-off criteria
+        if len(all_blends_incl_proportions) > 0:
+            new_blends, new_fitness = get_fitting_blends(
+                all_blends_incl_proportions
+                ,prices
+                ,flavor_model
+                ,flavors_components
+                ,target_flavor
+                ,target_color
+                ,cut_off_value)
+            if len(new_blends):
+                #Extend lists with blends and fitness values if any new exists
+                best_fitting_blends.extend([blend for blend in new_blends])
+                best_fitting_fitness.extend([fitness for fitness in new_fitness])
+    
+    
+        print("No. of fitting blends after run: " + str(len(new_blends)))
+        print("Runtime seconds: " + str(int(time.time() - start_time)))
+        print("---------------------------------------------------------")
+        
+    blend_numbers = list(range(len(best_fitting_fitness)))
+    
+    return best_fitting_blends,best_fitting_fitness,blend_numbers
+
+
 def data_chunker(data:list, chunk_size:int=2000) -> list:
     while data:
         chunk = data[:chunk_size]
         data = data[chunk_size:]
         
         yield chunk
-
-
 
 # =============================================================================
 # TEMP for testing of permutations
@@ -192,14 +233,14 @@ best_fitting_fitness = []
 
 
 # for i in [2,3,4,5,6,7]:
-for i in [2,3,4,5,6,7]:
+for i in [2,3]:
     all_blends_incl_proportions = get_blends_with_proportions(
         request_item
         ,request_proportion
         ,items
         ,i)
     
-    print("Components: " + str(i), "Possible blends: " + str(len(all_blends_incl_proportions)))
+    print("Components: " + str(i) + "\n" "Possible blends: " + str(len(all_blends_incl_proportions)))
     
     
     if len(all_blends_incl_proportions) > 0:
@@ -215,8 +256,23 @@ for i in [2,3,4,5,6,7]:
             best_fitting_fitness.extend([fitness for fitness in new_fitness])
 
 
+    print("No. of fitting blends after run: " + str(len(new_blends)))
     print("Runtime seconds: " + str(int(time.time() - start_time)))
-    print("No of fitting blends after run:", len(new_blends))
+    print("---------------------------------------------------------")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # best_fitting_blends = [blend for blend in best_fitting_blends]
 
