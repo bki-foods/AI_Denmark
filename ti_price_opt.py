@@ -263,6 +263,7 @@ def taste_diff(individual, flavor_model, candidates, target, color, MAX_C=7):
 
     # Do no rounding of the predicted flavor to ensure that the tolerances of deviation from target values are not unintentionally inflated.
     model_output = flavor_model.predict(np.array(model_input).reshape(1, -1))
+    
     return np.abs(target - model_output)
 
 
@@ -315,12 +316,11 @@ def blends_too_similar(blend1, blend2) -> bool:
         blends_differences = [round(abs(b1 - b2),2) for b1, b2 in zip(blend_1_proportions, blend_2_proportions)]
         # Blends are different enough if the mean ABS change is >= 0.1 across components
         blends_too_similar = statistics.mean(blends_differences) < 0.1
+    
     return blends_too_similar
 
 
-#TODO predict taste profile of each blend suggestion
-#Blend = først levels i hall of fame, flavor model = model, component_flavors = numpy array med kontrakternes smagsprofil, color = farve
-#OBS OBS OBS!!!! Component flavors skal være en liste over samtlige kontrakter med deres smag!!!
+
 def taste_pred(blend, flavor_model, component_flavors, color):
     """
     Predict a flavor profile of a given input blend.
