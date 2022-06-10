@@ -136,7 +136,7 @@ def get_fitting_blends_complete_list(required_item:int, min_proportion:int, avai
     best_fitting_fitness = []
     
     # Use the number of components as iterator    
-    for i in [2,3]: #[2,3,4,5,6,7]
+    for i in [2,3,4,5,6,7]: #[2,3,4,5,6,7]
         all_blends_incl_proportions = get_blends_with_proportions(
             required_item
             ,min_proportion
@@ -268,11 +268,18 @@ while blend_numbers:
                 ix_worst_fitness = hof_fitness_total.index(min_fitness_hof)
                 # Replace worst fitness with current blend
                 best_fitting_hof[ix_worst_fitness] = blend_no
-    # If current blend is similar to one or more in hof, we need to compare fitness values of these
+    # If current blend is similar to one or more in hof, we need to compare fitness values of these and replace the lowest one if current blend is better
     else:
-        min_fitness_hof_similar = [hof_fitness_total[i] if blend_similar_to_hof[i] else 999 for i in range(len(best_fitting_hof))]
+        # Find worst fitness of the similar blends
+        min_fitness_hof_similar = min([hof_fitness_total[i] if blend_similar_to_hof[i] else 1.0 for i in range(len(best_fitting_hof))])
+        # If current blend is a better fit, replace the worse
+        if best_fitting_fitness[blend_no] > min_fitness_hof_similar:
+            # Get the index of the worst fitness value
+            ix_worst_fitness_similar = hof_fitness_total.index(min_fitness_hof_similar)
+            # Replace worst fitness with current blend
+            best_fitting_hof[ix_worst_fitness_similar] = blend_no
         
-    
+#TODO! Alter all functions to try except, return None    
     
 # any([best_fitting_fitness[blend_no] for blend_no in best_fitting_hof]) 
 
