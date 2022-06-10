@@ -132,11 +132,12 @@ def get_fitting_blends_complete_list(required_item:int, min_proportion:int, avai
                                      ,flavor_model, flavors_components, target_flavor:list
                                      ,target_color:int, cut_off_value:float = 0.75) ->list:
     #TODO! Docstring
+    #TODO! Find proper fail-safe option to return None
     best_fitting_blends = []
     best_fitting_fitness = []
     
     # Use the number of components as iterator    
-    for i in [2,3,4,5,6,7]: #[2,3,4,5,6,7]
+    for i in [2,3,4]: #[2,3,4,5,6,7]
         all_blends_incl_proportions = get_blends_with_proportions(
             required_item
             ,min_proportion
@@ -176,6 +177,69 @@ def data_chunker(data:list, chunk_size:int=2000) -> list:
         data = data[chunk_size:]
         
         yield chunk
+
+
+def get_blends_hof(blends:list, blends_eval_value:list, hof_size:int = 50) -> list:
+    
+    
+    blend_numbers = list(range(len(best_fitting_fitness)))
+    
+    
+    best_fitting_hof = []
+    while blend_numbers: #TODO: Failsafe could be if not blend_numbers, return None
+        # Add blend no to variable and remove from list, looking to exhaust
+        blend_no = blend_numbers[0]
+        del blend_numbers[0]
+        
+        # If hof is empty, add the first blend to hof by default
+        if not best_fitting_hof:
+            best_fitting_hof.append(blend_no)
+        # Check if any of the blends in the hof are too similar to the current blend
+        blend_similar_to_hof = [tpo.blends_too_similar(best_fitting_blends[blend_no], best_fitting_blends[hof_blend]) for hof_blend in best_fitting_hof]
+        # Get all fitness values of hof
+        hof_fitness_total = [best_fitting_fitness[blend] for blend in best_fitting_hof]
+        if not any(blend_similar_to_hof):
+            # If hof has not reached max size yet, add the blend
+            if len(best_fitting_hof) < best_fitting_hof_size:
+                best_fitting_hof.append(blend_no)
+            # If hof has reached max size, evaluate fitness value of current blend and 
+            else:
+                min_fitness_hof = min(hof_fitness_total)
+                # If fitness of current blend is higher than the lowest in hof, replace
+                if best_fitting_fitness[blend_no] > min_fitness_hof:
+                    # Get the index of the worst fitness value
+                    ix_worst_fitness = hof_fitness_total.index(min_fitness_hof)
+                    # Replace worst fitness with current blend
+                    best_fitting_hof[ix_worst_fitness] = blend_no
+        # If current blend is similar to one or more in hof, we need to compare fitness values of these and replace the lowest one if current blend is better
+        else:
+            # Find worst fitness of the similar blends
+            min_fitness_hof_similar = min([hof_fitness_total[i] if blend_similar_to_hof[i] else 1.0 for i in range(len(best_fitting_hof))])
+            # If current blend is a better fit, replace the worse
+            if best_fitting_fitness[blend_no] > min_fitness_hof_similar:
+                # Get the index of the worst fitness value
+                ix_worst_fitness_similar = hof_fitness_total.index(min_fitness_hof_similar)
+                # Replace worst fitness with current blend
+                best_fitting_hof[ix_worst_fitness_similar] = blend_no
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # =============================================================================
 # TEMP for testing of permutations
@@ -240,10 +304,9 @@ best_fitting_blends,best_fitting_fitness,blend_numbers = get_fitting_blends_comp
     ,target_flavor_list
     ,target_color)
 
-blends_with_fitness = list(zip(best_fitting_blends,best_fitting_fitness))
 
 
-while blend_numbers:
+while blend_numbers: #TODO: Failsafe could be if not blend_numbers, return None
     # Add blend no to variable and remove from list, looking to exhaust
     blend_no = blend_numbers[0]
     del blend_numbers[0]
@@ -281,7 +344,6 @@ while blend_numbers:
         
 #TODO! Alter all functions to try except, return None    
     
-# any([best_fitting_fitness[blend_no] for blend_no in best_fitting_hof]) 
 
 
 # =============================================================================
