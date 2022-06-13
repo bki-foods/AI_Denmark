@@ -137,7 +137,7 @@ def get_fitting_blends_complete_list(required_item:int, min_proportion:int, avai
     best_fitting_fitness = []
     
     # Use the number of components as iterator    
-    for i in [2,3,4]: #[2,3,4,5,6,7]
+    for i in [2,3,4,5]: #[2,3,4,5,6,7]
         all_blends_incl_proportions = get_blends_with_proportions(
             required_item
             ,min_proportion
@@ -165,10 +165,9 @@ def get_fitting_blends_complete_list(required_item:int, min_proportion:int, avai
         print("No. of fitting blends after run: " + str(len(new_blends)))
         print("Runtime seconds: " + str(int(time.time() - start_time)))
         print("---------------------------------------------------------")
-        
-    blend_numbers = list(range(len(best_fitting_fitness)))
-    
-    return best_fitting_blends,best_fitting_fitness,blend_numbers
+
+
+    return best_fitting_blends,best_fitting_fitness
 
 
 def data_chunker(data:list, chunk_size:int=2000) -> list:
@@ -180,14 +179,16 @@ def data_chunker(data:list, chunk_size:int=2000) -> list:
 
 
 def get_blends_hof(blends:list, blends_eval_value:list, hof_size:int = 50) -> list:
-    
-    
+    #TODO docstring
+    # Create a list of blend indexes to iterate over
     blend_numbers = list(range(len(best_fitting_fitness)))
-    
+    # Return none if no blends exist
+    if not blend_numbers:
+        return None
     
     best_fitting_hof = []
-    while blend_numbers: #TODO: Failsafe could be if not blend_numbers, return None
-        # Add blend no to variable and remove from list, looking to exhaust
+    while blend_numbers:
+        # Add blend no to variable and remove from list, looking to exhaust list
         blend_no = blend_numbers[0]
         del blend_numbers[0]
         
@@ -221,8 +222,10 @@ def get_blends_hof(blends:list, blends_eval_value:list, hof_size:int = 50) -> li
                 ix_worst_fitness_similar = hof_fitness_total.index(min_fitness_hof_similar)
                 # Replace worst fitness with current blend
                 best_fitting_hof[ix_worst_fitness_similar] = blend_no
+        
+    hof_blends = [blends[i] for i in best_fitting_hof]
 
-
+    return hof_blends
 
 
 
@@ -294,7 +297,7 @@ contract_prices_list = df_available_coffee["Standard Cost"].to_numpy().reshape(-
 best_fitting_hof = []
 best_fitting_hof_size = 50
 
-best_fitting_blends,best_fitting_fitness,blend_numbers = get_fitting_blends_complete_list(
+best_fitting_blends,best_fitting_fitness = get_fitting_blends_complete_list(
     request_item
     ,request_proportion
     ,items
@@ -306,63 +309,44 @@ best_fitting_blends,best_fitting_fitness,blend_numbers = get_fitting_blends_comp
 
 
 
-while blend_numbers: #TODO: Failsafe could be if not blend_numbers, return None
-    # Add blend no to variable and remove from list, looking to exhaust
-    blend_no = blend_numbers[0]
-    del blend_numbers[0]
-    
-    # If hof is empty, add the first blend to hof by default
-    if not best_fitting_hof:
-        best_fitting_hof.append(blend_no)
-    # Check if any of the blends in the hof are too similar to the current blend
-    blend_similar_to_hof = [tpo.blends_too_similar(best_fitting_blends[blend_no], best_fitting_blends[hof_blend]) for hof_blend in best_fitting_hof]
-    # Get all fitness values of hof
-    hof_fitness_total = [best_fitting_fitness[blend] for blend in best_fitting_hof]
-    if not any(blend_similar_to_hof):
-        # If hof has not reached max size yet, add the blend
-        if len(best_fitting_hof) < best_fitting_hof_size:
-            best_fitting_hof.append(blend_no)
-        # If hof has reached max size, evaluate fitness value of current blend and 
-        else:
-            min_fitness_hof = min(hof_fitness_total)
-            # If fitness of current blend is higher than the lowest in hof, replace
-            if best_fitting_fitness[blend_no] > min_fitness_hof:
-                # Get the index of the worst fitness value
-                ix_worst_fitness = hof_fitness_total.index(min_fitness_hof)
-                # Replace worst fitness with current blend
-                best_fitting_hof[ix_worst_fitness] = blend_no
-    # If current blend is similar to one or more in hof, we need to compare fitness values of these and replace the lowest one if current blend is better
-    else:
-        # Find worst fitness of the similar blends
-        min_fitness_hof_similar = min([hof_fitness_total[i] if blend_similar_to_hof[i] else 1.0 for i in range(len(best_fitting_hof))])
-        # If current blend is a better fit, replace the worse
-        if best_fitting_fitness[blend_no] > min_fitness_hof_similar:
-            # Get the index of the worst fitness value
-            ix_worst_fitness_similar = hof_fitness_total.index(min_fitness_hof_similar)
-            # Replace worst fitness with current blend
-            best_fitting_hof[ix_worst_fitness_similar] = blend_no
+
+hof_req_blends = get_blends_hof(best_fitting_blends, best_fitting_fitness)
+
+
+
+def convert_blends_lists_to_dataframe(blends:list, blend_no_start:int=0)-> pd.DataFrame():
+    """
+    Converts a list of blends with components and proportions to a pandas DataFrame.
+
+    Parameters
+    ----------
+    blends :
+        A list containing all the blends to be evaluated containing index no of component and its proportion.
+        Use -1 as placeholder for NULL components with a proportion of 0.
+        Expected format: [[(),(),()],[(),(),()],[(),(),()]]
+    blend_no_start :
+        The index at which the blends are to be numbered.
+        Default index is 0, which would mean that the blends will be numbered 1,2,3 etc.
+
+    Returns
+    -------
+    A pandas DataFrame with all blends
+
+    """
         
-#TODO! Alter all functions to try except, return None    
-    
+    df = pd.DataFrame(columns=["Blend_nr","Kontraktnummer_index","Proportion"])
+        
+    for blend in blends:
+        blend_no_start +=1
+        for component_line in blend:
+            if not component_line[0] == -1: # -1 indicates a NULL placeholder value, these are ignored
+            # Extract data for each component line for each blend suggestion and append to dataframe
+                data = {"Blend_nr": blend_no_start
+                        ,"Kontraktnummer_index": component_line[0]
+                        ,"Proportion": component_line[1]}
+                df = df.append(data, ignore_index = True)
 
-
-# =============================================================================
-# # Suggested blends, hall of fame
-# df_tester = pd.DataFrame(columns=["Blend_nr","Kontraktnummer_index","Proportion"])   
-# # Create iterator to create a blend number for each complete blend suggestion
-# blend_no = 1000
-# # Nested lists and tuples, format: [[(),(),()],[(),(),()],[(),(),()]]
-# for blend in best_fitting_blends:
-#     blend_no += 1
-#     for component_line in blend:
-#         if not component_line[0] == -1: # -1 indicates a NULL placeholder value, these are ignored
-#             con_ix = component_line[0]
-#             # Extract data for each component line for each blend suggestion and append to dataframe
-#             data = {"Blend_nr": blend_no
-#                     ,"Kontraktnummer_index": con_ix
-#                     ,"Proportion": component_line[1]}
-#             df_tester = df_tester.append(data, ignore_index = True)
-# =============================================================================
+    return df
 
 
 
@@ -370,45 +354,31 @@ while blend_numbers: #TODO: Failsafe could be if not blend_numbers, return None
 
 
 
+df_tester = convert_blends_lists_to_dataframe(hof_req_blends,1000)
 
 
 
 
+# Merge blend suggestions with input available coffees to add additional info to datafarme, and alter column order
+df_tester = pd.merge(
+    left = df_tester
+    ,right = df_available_coffee
+    ,how = "left"
+    ,left_on= "Kontraktnummer_index"
+    ,right_on = "Kontrakt_id")
+# Calculate blend cost per component using the standard cost price of each component
+df_tester["Beregnet pris"] = df_tester["Proportion"] * df_tester["Standard Cost"]
+df_tester["Beregnet pris +1M"] = df_tester["Proportion"] * df_tester["Forecast Unit Cost +1M"]
+df_tester["Beregnet pris +2M"] = df_tester["Proportion"] * df_tester["Forecast Unit Cost +2M"]
+df_tester["Beregnet pris +3M"] = df_tester["Proportion"] * df_tester["Forecast Unit Cost +3M"]
 
 
+# Defined column order for final dataframe, only add robusta if it is to be predicted.
+blend_suggestion_columns = ["Blend_nr" ,"Sort","Varenavn" ,"Proportion"
+                            ,"Beregnet pris" ,"Beregnet pris +1M"
+                            ,"Beregnet pris +2M", "Beregnet pris +3M"]
 
-
-
-
-
-
-
-
-
-# =============================================================================
-# 
-# 
-# # Merge blend suggestions with input available coffees to add additional info to datafarme, and alter column order
-# df_tester = pd.merge(
-#     left = df_tester
-#     ,right = df_available_coffee
-#     ,how = "left"
-#     ,left_on= "Kontraktnummer_index"
-#     ,right_on = "Kontrakt_id")
-# # Calculate blend cost per component using the standard cost price of each component
-# df_tester["Beregnet pris"] = df_tester["Proportion"] * df_tester["Standard Cost"]
-# df_tester["Beregnet pris +1M"] = df_tester["Proportion"] * df_tester["Forecast Unit Cost +1M"]
-# df_tester["Beregnet pris +2M"] = df_tester["Proportion"] * df_tester["Forecast Unit Cost +2M"]
-# df_tester["Beregnet pris +3M"] = df_tester["Proportion"] * df_tester["Forecast Unit Cost +3M"]
-# 
-# 
-# # Defined column order for final dataframe, only add robusta if it is to be predicted.
-# blend_suggestion_columns = ["Blend_nr" ,"Sort","Varenavn" ,"Proportion"
-#                             ,"Beregnet pris" ,"Beregnet pris +1M"
-#                             ,"Beregnet pris +2M", "Beregnet pris +3M"]
-# 
-# df_tester = df_tester[blend_suggestion_columns]
-# =============================================================================
+df_tester = df_tester[blend_suggestion_columns]
 
 
 
