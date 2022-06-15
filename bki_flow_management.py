@@ -19,6 +19,8 @@ request_krop = df_request["Krop"].iloc[0]
 request_eftersmag = df_request["Eftersmag"].iloc[0]
 request_farve = df_request["Farve"].iloc[0]
 request_aggregate_input = True if df_request["Aggreger_til_sortniveau"].iloc[0] == 1 else False
+request_required_item = df_request["Låst_komponent"].iloc[0]
+request_required_proportion = df_request["Låst_komponent_proportion"].iloc[0]
 # Setting to differentiate between whether or not algorithm is expected to predict robusta taste or not
 predict_robusta = False
 
@@ -99,22 +101,8 @@ wb_name = f"Receptforslag_{request_id}.xlsx"
 path_file_wb = bsi.filepath_report + r"\\" + wb_name
 excel_writer = pd.ExcelWriter(path_file_wb, engine="xlsxwriter")
 
-# SHEET 1
-# Suggested blends, hall of fame
-df_blend_suggestions = pd.DataFrame(columns=["Blend_nr","Kontraktnummer_index","Proportion"])   
-# Create iterator to create a blend number for each complete blend suggestion
-blend_no = 0
-# Nested lists and tuples, format: [[(),(),()],[(),(),()],[(),(),()]]
-for blend in blend_suggestions_hof:
-    blend_no += 1
-    for component_line in blend:
-        if not component_line[0] == -1: # -1 indicates a NULL placeholder value, these are ignored
-            con_ix = component_line[0]
-            # Extract data for each component line for each blend suggestion and append to dataframe
-            data = {"Blend_nr": blend_no
-                    ,"Kontraktnummer_index": con_ix
-                    ,"Proportion": component_line[1]}
-            df_blend_suggestions = df_blend_suggestions.append(data, ignore_index = True)
+# SHEET 1           
+df_blend_suggestions = bf.convert_blends_lists_to_dataframe(blend_suggestions_hof)
 # Defined column order for final dataframe, only add robusta if it is to be predicted.
 blend_suggestion_columns = ["Blend_nr" ,"Kontraktnummer" ,"Modtagelse" ,"Proportion"
                             ,"Sort","Varenavn","Beregnet pris" ,"Beregnet pris +1M"
@@ -140,6 +128,7 @@ bf.insert_dataframe_into_excel(
     excel_writer
     ,df_blend_suggestions[blend_suggestion_columns]
     ,"Blend forslag")
+
 
 # SHEET 2
 # Sumarized blend suggestions with total cost
@@ -194,6 +183,49 @@ bf.insert_dataframe_into_excel(
     excel_writer
     ,df_blend_suggestions_summarized
     ,"Blend forslag opsummeret")
+
+
+# SHEET 3/4
+# Add the required item index value if it exists, don't try to create sheet if it does not exist..
+if request_required_item in df_available_coffee["Sort"].to_list():
+    request_required_item = df_available_coffee["Sort"].to_list().index(request_required_item)
+    # Get all the best fitting blends that fullfill criteria for fixed component and min proportion
+    best_fitting_req_blends,best_fitting_req_fitness = bf.get_fitting_blends_complete_list(
+        request_required_item
+        ,request_required_proportion
+        ,df_available_coffee["Kontrakt_id"].to_list()
+        ,contract_prices_list
+        ,flavor_predictor
+        ,flavors_list
+        ,target_flavor_list
+        ,request_farve)
+    # Create a hall of fame from blends
+    hof_req_blends = bf.get_blends_hof(best_fitting_req_blends, best_fitting_req_fitness)
+    # Convert hall of fame to dataframe
+    df_requested_blends = bf.convert_blends_lists_to_dataframe(hof_req_blends,1000)
+    # Merge blend suggestions with input available coffees to add additional info to datafarme, and alter column order
+    df_requested_blends = pd.merge(
+        left = df_requested_blends
+        ,right = df_available_coffee
+        ,how = "left"
+        ,left_on= "Kontraktnummer_index"
+        ,right_on = "Kontrakt_id")
+    # Calculate blend cost per component using the standard cost price of each component
+    df_requested_blends["Beregnet pris"] = df_requested_blends["Proportion"] * df_requested_blends["Standard Cost"]
+    df_requested_blends["Beregnet pris +1M"] = df_requested_blends["Proportion"] * df_requested_blends["Forecast Unit Cost +1M"]
+    df_requested_blends["Beregnet pris +2M"] = df_requested_blends["Proportion"] * df_requested_blends["Forecast Unit Cost +2M"]
+    df_requested_blends["Beregnet pris +3M"] = df_requested_blends["Proportion"] * df_requested_blends["Forecast Unit Cost +3M"]
+    # Defined column order for final dataframe
+    blend_suggestion_columns = ["Blend_nr" ,"Sort","Varenavn" ,"Proportion"
+                                ,"Beregnet pris" ,"Beregnet pris +1M"
+                                ,"Beregnet pris +2M", "Beregnet pris +3M"]
+    df_requested_blends = df_requested_blends[blend_suggestion_columns]
+    # Add dataframe to workbook
+    bf.insert_dataframe_into_excel(
+        excel_writer
+        ,df_requested_blends
+        ,"Blends - låst sort")
+
 
 # SHEET 3/4
 # Green coffee input, insert into workbook
