@@ -22,7 +22,41 @@ request_proportion = 5
 
 
 def get_blends_with_proportions(required_item:int, min_proportion:int, available_items:list, number_of_components:int) -> list:
-    #TODO! Docstring!!!
+    """
+    Creates all possible combinations of available components and the required item with their respective proportions.
+    Proportions are created in increments of 5, and the input min_proportion will be rounded to nearest multiple of 5.
+    The following cases will yield and empty list due to lack of data or to prevent excessive amounts of data.
+    - If more components are requested than coffee is avalable
+    - If >6 components and >8 available items
+    - If >5 components and >10 available items
+    - If >4 components and >15 available items
+    Parameters
+    ----------
+    required_item : int
+        The item which is required to be part of all the created blends.
+    min_proportion : int
+        The min proportion which the required item must have.
+        The required item will be in blends with proportions between this value are the theoretical max value.
+        If this value is not input as an increment of 5, it will be rounded
+    available_items : list
+        A list of all the possible components to be included in the blends.
+        The required item must be part of this list as well.
+    number_of_components : int
+        The number of components which the blend must have.
+        Must be a value between 2 and 7.
+
+    Returns
+    -------
+    A list of all possible blends that can be created with the input items and their respective proportions
+    """
+    
+    if min_proportion < 5:
+        min_proportion = 5
+    elif min_proportion > 95:
+        min_proportion = 95
+    elif min_proportion % 5:
+        min_proportion = round(min_proportion / 5 ,0) * 5
+
     
     # Create padding for component index and their proportions to ensure all blends have the required dimensions
     padding_placeholder = (7 - number_of_components) * [-1]
@@ -81,8 +115,7 @@ def get_blends_with_proportions(required_item:int, min_proportion:int, available
 
 def get_fitting_blends(blends, prices, flavor_model, flavors_components, target_flavor, target_color:int, cut_off_value:float = 0.75)->list:
     """
-    #TODO!!
-
+    Create a list of blends that have no differences to the target flavor profile greater than the cuf_off_value
     Parameters
     ----------
     blends :
@@ -103,7 +136,6 @@ def get_fitting_blends(blends, prices, flavor_model, flavors_components, target_
     Returns
     -------
     A list with the blends that have no differences to the target flavor profile greater than the cuf_off_value
-
     """
     # Create a list of calculated diffs in predicted flavor profile when compared to the target
     blends_flavor_diffs = [tpo.taste_diff(blend, flavor_model, flavors_components, target_flavor, target_color).tolist() for blend in blends]
@@ -131,13 +163,44 @@ def get_fitting_blends(blends, prices, flavor_model, flavors_components, target_
 def get_fitting_blends_complete_list(required_item:int, min_proportion:int, available_items:list, prices
                                      ,flavor_model, flavors_components, target_flavor:list
                                      ,target_color:int, cut_off_value:float = 0.75) ->list:
-    #TODO! Docstring
-    #TODO! Find proper fail-safe option to return None
+    """
+    Creates a list of all possible blends which fall within the input criteria.
+    The list consists of blends of 2-7 components, unless no suitable candidates are found within these constraints.
+    Parameters
+    ----------
+    required_item : int
+        The component which must be present in all proposed blends.
+    min_proportion : int
+        The min proportion the required component must have in all proposed blends.
+        Blends will be created with this proportion up to, and including, the theoretical max proportion
+    available_items : list
+        A list of all available components for the blends. List must include the required item as well.
+    prices : TYPE
+        A list of the prices of all available items, including required item.
+    flavor_model : TYPE
+        A trained neural network that can be used to predict the flavor profile of each blend.
+    flavors_components : TYPE
+        The known flavor profiles of all the available items.
+    target_flavor : list
+        The flavor profile which is required to be achived.
+    target_color : int
+        The degree of roast for the blend.
+    cut_off_value : float, optional
+        The max value any difference for each of the flavor profile values may have.
+        If any of the values are greater than this value the blend will be discarded.
+        The default is 0.75.
+
+    Returns
+    -------
+    A list of all the blends that fall within the input criteria.
+
+    """
+
     best_fitting_blends = []
     best_fitting_fitness = []
     
     # Use the number of components as iterator    
-    for i in [2,3,4,5]: #[2,3,4,5,6,7]
+    for i in [2,3,4,5,6,7]:
         all_blends_incl_proportions = get_blends_with_proportions(
             required_item
             ,min_proportion
@@ -170,16 +233,40 @@ def get_fitting_blends_complete_list(required_item:int, min_proportion:int, avai
     return best_fitting_blends,best_fitting_fitness
 
 
-def data_chunker(data:list, chunk_size:int=2000) -> list:
-    while data:
-        chunk = data[:chunk_size]
-        data = data[chunk_size:]
-        
-        yield chunk
-
-
 def get_blends_hof(blends:list, blends_eval_value:list, hof_size:int = 50) -> list:
-    #TODO docstring
+    """
+    Create a hall-of-fame of a list of blends that are not-too-similar.
+    The hall-of-fame has the following logic flow, run per blend.
+    - Is hof empty 
+        yes --> add blend to hof
+        no  --> is blend similar to another blend
+            yes --> is blend fitness > similar blends fitness
+                yes --> replace similar blend in hof
+                no  --> pass
+            no  --> is blends in hof < hof_size
+                yes --> add blend to hof
+                no  --> is blend fitness > min fitness in hof
+                    yes --> replace blend in hof with min fitness
+                    no  --> pass
+ 
+    Parameters
+    ----------
+    blends : list
+        A list with any number of blends of len 7, which contains tuples of components and proportions.
+        Expected format: [[(),(),()],[(),(),()],[(),(),()]]
+    blends_eval_value : list
+        A list containing a value per blend, which is used to see which blend is to be prioritized over another.
+        List must have the same length as the number of blends.
+        The higher value the better
+    hof_size : int, optional
+        Setting of how many blends is to be returned in the final list.
+        The default is 50.
+
+    Returns
+    -------
+    A list with hof_size length of blends, which are the final result of the hof.
+    """
+
     # Create a list of blend indexes to iterate over
     blend_numbers = list(range(len(best_fitting_fitness)))
     # Return none if no blends exist
@@ -201,7 +288,7 @@ def get_blends_hof(blends:list, blends_eval_value:list, hof_size:int = 50) -> li
         hof_fitness_total = [best_fitting_fitness[blend] for blend in best_fitting_hof]
         if not any(blend_similar_to_hof):
             # If hof has not reached max size yet, add the blend
-            if len(best_fitting_hof) < best_fitting_hof_size:
+            if len(best_fitting_hof) < hof_size:
                 best_fitting_hof.append(blend_no)
             # If hof has reached max size, evaluate fitness value of current blend and 
             else:
@@ -229,7 +316,39 @@ def get_blends_hof(blends:list, blends_eval_value:list, hof_size:int = 50) -> li
 
 
 
+def convert_blends_lists_to_dataframe(blends:list, blend_no_start:int=0)-> pd.DataFrame():
+    """
+    Converts a list of blends with components and proportions to a pandas DataFrame.
 
+    Parameters
+    ----------
+    blends :
+        A list containing all the blends to be evaluated containing index no of component and its proportion.
+        Use -1 as placeholder for NULL components with a proportion of 0.
+        Expected format: [[(),(),()],[(),(),()],[(),(),()]]
+    blend_no_start :
+        The index at which the blends are to be numbered.
+        Default index is 0, which would mean that the blends will be numbered 1,2,3 etc.
+
+    Returns
+    -------
+    A pandas DataFrame with all blends
+
+    """
+        
+    df = pd.DataFrame(columns=["Blend_nr","Kontraktnummer_index","Proportion"])
+        
+    for blend in blends:
+        blend_no_start +=1
+        for component_line in blend:
+            if not component_line[0] == -1: # -1 indicates a NULL placeholder value, these are ignored
+            # Extract data for each component line for each blend suggestion and append to dataframe
+                data = {"Blend_nr": blend_no_start
+                        ,"Kontraktnummer_index": component_line[0]
+                        ,"Proportion": component_line[1]}
+                df = df.append(data, ignore_index = True)
+
+    return df
 
 
 
@@ -294,10 +413,12 @@ contract_prices_list = df_available_coffee["Standard Cost"].to_numpy().reshape(-
 # =============================================================================
 
 
-best_fitting_hof = []
-best_fitting_hof_size = 50
 
-best_fitting_blends,best_fitting_fitness = get_fitting_blends_complete_list(
+
+
+
+
+best_fitting_req_blends,best_fitting_req_fitness = get_fitting_blends_complete_list(
     request_item
     ,request_proportion
     ,items
@@ -308,69 +429,22 @@ best_fitting_blends,best_fitting_fitness = get_fitting_blends_complete_list(
     ,target_color)
 
 
+hof_req_blends = get_blends_hof(best_fitting_req_blends, best_fitting_req_fitness)
 
-
-hof_req_blends = get_blends_hof(best_fitting_blends, best_fitting_fitness)
-
-
-
-def convert_blends_lists_to_dataframe(blends:list, blend_no_start:int=0)-> pd.DataFrame():
-    """
-    Converts a list of blends with components and proportions to a pandas DataFrame.
-
-    Parameters
-    ----------
-    blends :
-        A list containing all the blends to be evaluated containing index no of component and its proportion.
-        Use -1 as placeholder for NULL components with a proportion of 0.
-        Expected format: [[(),(),()],[(),(),()],[(),(),()]]
-    blend_no_start :
-        The index at which the blends are to be numbered.
-        Default index is 0, which would mean that the blends will be numbered 1,2,3 etc.
-
-    Returns
-    -------
-    A pandas DataFrame with all blends
-
-    """
-        
-    df = pd.DataFrame(columns=["Blend_nr","Kontraktnummer_index","Proportion"])
-        
-    for blend in blends:
-        blend_no_start +=1
-        for component_line in blend:
-            if not component_line[0] == -1: # -1 indicates a NULL placeholder value, these are ignored
-            # Extract data for each component line for each blend suggestion and append to dataframe
-                data = {"Blend_nr": blend_no_start
-                        ,"Kontraktnummer_index": component_line[0]
-                        ,"Proportion": component_line[1]}
-                df = df.append(data, ignore_index = True)
-
-    return df
-
-
-
-
-
-
-
-df_tester = convert_blends_lists_to_dataframe(hof_req_blends,1000)
-
-
-
+df_requested_blends = convert_blends_lists_to_dataframe(hof_req_blends,1000)
 
 # Merge blend suggestions with input available coffees to add additional info to datafarme, and alter column order
-df_tester = pd.merge(
-    left = df_tester
+df_requested_blends = pd.merge(
+    left = df_requested_blends
     ,right = df_available_coffee
     ,how = "left"
     ,left_on= "Kontraktnummer_index"
     ,right_on = "Kontrakt_id")
 # Calculate blend cost per component using the standard cost price of each component
-df_tester["Beregnet pris"] = df_tester["Proportion"] * df_tester["Standard Cost"]
-df_tester["Beregnet pris +1M"] = df_tester["Proportion"] * df_tester["Forecast Unit Cost +1M"]
-df_tester["Beregnet pris +2M"] = df_tester["Proportion"] * df_tester["Forecast Unit Cost +2M"]
-df_tester["Beregnet pris +3M"] = df_tester["Proportion"] * df_tester["Forecast Unit Cost +3M"]
+df_requested_blends["Beregnet pris"] = df_requested_blends["Proportion"] * df_requested_blends["Standard Cost"]
+df_requested_blends["Beregnet pris +1M"] = df_requested_blends["Proportion"] * df_requested_blends["Forecast Unit Cost +1M"]
+df_requested_blends["Beregnet pris +2M"] = df_requested_blends["Proportion"] * df_requested_blends["Forecast Unit Cost +2M"]
+df_requested_blends["Beregnet pris +3M"] = df_requested_blends["Proportion"] * df_requested_blends["Forecast Unit Cost +3M"]
 
 
 # Defined column order for final dataframe, only add robusta if it is to be predicted.
@@ -378,7 +452,7 @@ blend_suggestion_columns = ["Blend_nr" ,"Sort","Varenavn" ,"Proportion"
                             ,"Beregnet pris" ,"Beregnet pris +1M"
                             ,"Beregnet pris +2M", "Beregnet pris +3M"]
 
-df_tester = df_tester[blend_suggestion_columns]
+df_requested_blends = df_requested_blends[blend_suggestion_columns]
 
 
 
