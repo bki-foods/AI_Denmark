@@ -6,3 +6,4 @@ flavor_predictor_no_robusta.sav
 flavor_predictor_robusta.sav
 test.py
 bki_server_information.py
+bki_get_recommendations_for_specified_coffee.py
