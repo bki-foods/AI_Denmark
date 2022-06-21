@@ -196,7 +196,7 @@ def get_coffee_contracts() -> pd.DataFrame():
 			LEFT JOIN [dbo].[BKI foods a_s$Forecast Item Unit Cost] AS FUC
 				ON I.[No_] = FUC.[Item No_]
             WHERE PH.[Kontrakt] = 1
-				AND I.[No_] NOT LIKE '1012%'"""
+				AND I.[No_] NOT LIKE '1012%' """
     df = pd.read_sql(query, bsi.con_nav)
     
     # Ensure forecast unit costs have a value, just punish the blend enough that it's obvious that there is an issue with prices
@@ -266,7 +266,8 @@ def get_finished_goods_grades() -> pd.DataFrame():
             WHERE COALESCE(S.[Smag_Syre],S.[Smag_Krop],S.[Smag_Aroma],S.[Smag_Eftersmag],S.[Smag_Robusta]) IS NOT NULL
             	AND S.[Referencetype] = 2
             	AND S.[Referencenummer] IS NOT NULL
-                AND S.[Varenummer] NOT LIKE '1090%' """
+                AND S.[Varenummer] NOT LIKE '1090%'
+                AND S.[Smagningstype] = 4 """
     df = pd.read_sql(query, bsi.con_ds)
     return df
 
