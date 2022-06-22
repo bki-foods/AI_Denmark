@@ -83,11 +83,11 @@ def get_blend_grade_data(robusta=True):
     res4 = pd.merge(contracts, res3, on=["Kontraktnummer"])
     res5 = pd.merge(raw_grades, res4, on=["Kontraktnummer", "Modtagelse"], how="right")
     raw_success = pd.merge(raw_grades, res4, on=["Kontraktnummer", "Modtagelse"], how="inner")
-#TODO HER!! tilføjet robusta_r
+
     missing_raw = res5[res5["Syre_r"].isna()] \
         .drop(columns=["Dato_r", "Modtagelse", "Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r"]) \
         .drop_duplicates()
-    if robusta: # changed from if not robusta --> if robusta
+    if robusta:
         missing_raw.drop("Robusta_r", inplace=True, axis=1)
 
     # If no kontrakt/modtagelse has been defined, use data for the last kontrakt graded before the roasting date
@@ -102,12 +102,7 @@ def get_blend_grade_data(robusta=True):
 
     tasting_ids = list(set(filtered_data["Smagningsid"]))
     
-# =============================================================================
-#     TEMP_DF_NAN = filtered_data[filtered_data[["Robusta_r","Robusta_p"]].isna().any(axis=1)]
-#     print(TEMP_DF_NAN)
-#     return TEMP_DF_NAN
-# =============================================================================
-    
+   
     X_list = []
     Y_list = []
 
