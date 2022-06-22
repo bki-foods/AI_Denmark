@@ -107,8 +107,7 @@ df_blend_suggestions = bf.convert_blends_lists_to_dataframe(blend_suggestions_ho
 blend_suggestion_columns = ["Blend_nr" ,"Kontraktnummer" ,"Modtagelse" ,"Proportion"
                             ,"Sort","Varenavn","Beregnet pris" ,"Beregnet pris +1M"
                             ,"Beregnet pris +2M", "Beregnet pris +3M"
-                            ,"Syre", "Aroma", "Krop", "Eftersmag"
-                            ,"Screensize", "Oprindelsesland","Mærkningsordning"]
+                            ,"Syre", "Aroma", "Krop", "Eftersmag"]
 if predict_robusta:
     blend_suggestion_columns[14:14] = ["Robusta"]
 # Merge blend suggestions with input available coffees to add additional info to datafarme, and alter column order
