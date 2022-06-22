@@ -108,7 +108,7 @@ blend_suggestion_columns = ["Blend_nr" ,"Kontraktnummer" ,"Modtagelse" ,"Proport
                             ,"Sort","Varenavn","Beregnet pris" ,"Beregnet pris +1M"
                             ,"Beregnet pris +2M", "Beregnet pris +3M"
                             ,"Syre", "Aroma", "Krop", "Eftersmag"
-                            ,"Screensize", "Oprindelsesland","Mærkningsordning", "Kontrakt_id"]
+                            ,"Screensize", "Oprindelsesland","Mærkningsordning"]
 if predict_robusta:
     blend_suggestion_columns[14:14] = ["Robusta"]
 # Merge blend suggestions with input available coffees to add additional info to datafarme, and alter column order
