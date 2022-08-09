@@ -43,7 +43,7 @@ def log_insert(event: str, note: str):
     """Inserts a record into BKI_Datastore dbo.log with event and note."""
     dict_log = {"Note": note
                 ,"Event": event}
-    pd.DataFrame(data=dict_log, index=[0]).to_sql("Log", con=bsi.engine_ds, schema="dbo", if_exists="append", index=False)
+    pd.DataFrame(data=dict_log, index=[0]).to_sql("Log", con=bsi.con_ds, schema="dbo", if_exists="append", index=False)
 
 # Write dataframe into Excel sheet
 def insert_dataframe_into_excel (engine, dataframe, sheetname: str, include_index: bool = False):
@@ -75,11 +75,10 @@ def update_request_log(request_id: int, status: int, filename: str = "", filepat
         Name of the workbook generated. The default is ''.
     filepath : str, optional
         The filepath for the workbook generated. The default is ''."""
-    bsi.cursor_ds.execute(f"""UPDATE [cof].[Receptforslag_log]
+    bsi.con_ds.execute(f"""UPDATE [cof].[Receptforslag_log]
                           SET [Status] = {status}, [Filsti] = '{filepath}'
                           , [Filnavn] = '{filename}'
                           WHERE [Id] = {request_id} """)
-    bsi.cursor_ds.commit()
 
 # Write into section log
 def insert_into_email_log(dictionary: dict):
@@ -91,7 +90,7 @@ def insert_into_email_log(dictionary: dict):
         Dictionary containing keys matching field names in table in the database.
     """
     df = pd.DataFrame(data= dictionary ,index= [0])
-    df.to_sql("Email_log", con=bsi.engine_ds, schema="cof", if_exists="append", index=False)
+    df.to_sql("Email_log", con=bsi.con_ds, schema="cof", if_exists="append", index=False)
 
 # Compare two dataframes with specified columns and see if dataframe 2 is missing any values compared to dataframe 1
 def get_list_of_missing_values(df_total:pd.DataFrame(), total_column_name:str, df_compare:pd.DataFrame(), compare_column_name:str) -> list:
@@ -1092,16 +1091,17 @@ def convert_blends_lists_to_dataframe(blends:list, blend_no_start:int=0)-> pd.Da
     """
         
     df = pd.DataFrame(columns=["Blend_nr","Kontraktnummer_index","Proportion"])
-        
+
     for blend in blends:
         blend_no_start +=1
         for component_line in blend:
             if not component_line[0] == -1: # -1 indicates a NULL placeholder value, these are ignored
             # Extract data for each component line for each blend suggestion and append to dataframe
-                data = {"Blend_nr": blend_no_start
-                        ,"Kontraktnummer_index": component_line[0]
-                        ,"Proportion": component_line[1]}
-                df = df.append(data, ignore_index = True)
+                data = pd.DataFrame.from_dict(
+                    {"Blend_nr": [blend_no_start]
+                    ,"Kontraktnummer_index": [component_line[0]]
+                    ,"Proportion": [component_line[1]]})
+                df = pd.concat([df,data], ignore_index=True) # df.append(data, ignore_index = True)
 
     return df
 
