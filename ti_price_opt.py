@@ -40,6 +40,9 @@ def ga_cheapest_blend(contracts, flavors, prices, flavor_model, target_flavor, r
     assert (len(contracts) == len(prices))
 
     N = len(contracts)
+    
+    # Prevent error if number of available components is less than max components allowed
+    MAX_C = N if MAX_C > N else MAX_C
 
     # Start initializing the optimization problem as a maximization problem
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
@@ -88,9 +91,12 @@ def initial_blend(N, MIN_C=1, MAX_C=7, MIN_P=0.06, MAX_P=1.00):
     between MIN_P and MAX_P. If no of components is below MIN_C the blend is padded with -1
     as placeholder values.
     """
+    # Prevent error if number of available components is less than max components allowed
+    MAX_C = N if MAX_C > N else MAX_C
+    
     components = random.randint(MIN_C, MAX_C)
     indices = random.sample(range(N), components)
-    missing = MAX_C - components
+    missing = 7 - components # MAX_C - components
     indices = indices + [-1] * missing
 
     proportions = []
@@ -130,6 +136,7 @@ def drop_add_comp(individual, N, MIN_C=1, MAX_C=7, MIN_P=0.06, MAX_P=1.00):
     """
     Function to either do nothing to a blend, remove a random component or add a random component.
     """
+
     size = len(individual)
     components = [individual[i][0] for i in range(size) if individual[i][0] != -1]
     num_components = len(components)
@@ -175,7 +182,7 @@ def mutate_blend(individual, p_drop, p_mutp, p_mutc, N, mu=0, sigma=0.1, MIN_C=1
     Randomly decide whether a blend is to have its components changed, proportions changed or added/removed components.
     A blend may also have nothing done to it.
     """
-    # Maybe
+    
     if (random.random() < p_drop):
         individual, = drop_add_comp(individual, N, MIN_C=MIN_C, MAX_C=MAX_C, MIN_P=MIN_P, MAX_P=MAX_P)
 
@@ -248,6 +255,7 @@ def taste_diff(individual, flavor_model, candidates, target, color, MAX_C=7):
     """
     Calculates the aboslut difference between the calculated taste profile of a blend and the target values.
     """
+
     D = len(candidates[0, :])
     size = len(individual)
     components = [individual[i][0] for i in range(size) if individual[i][0] != -1]
