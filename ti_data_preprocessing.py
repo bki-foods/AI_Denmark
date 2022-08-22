@@ -100,14 +100,10 @@ def get_blend_grade_data(robusta=True):
         .drop_duplicates(subset=["Kontraktnummer", "Modtagelse", "Produktionsordre id", "Batch id",
                                  "Ordre_rist", "Ordre_p", "Kilo_rist_input"])
     
-    tasting_ids = list(set(filtered_data["Smagningsid"]))
-    
-       
-    X_list = []
-    Y_list = []
+    max_tasting_id = max(list(set(filtered_data["Smagningsid"]))) + 1
     
     
-   # Calculate the correct weights for BAR recipes 
+    
     df_agg_bar = filtered_data[filtered_data["Receptnummer"].isin(bar_recipes)].groupby(["Receptnummer","Ordre_p"], dropna=False).agg(
         {"Kilo_rist_input": "sum"}).reset_index()
     df_agg_bar_order = df_agg_bar.groupby(["Ordre_p"], dropna=False).agg(
@@ -123,7 +119,8 @@ def get_blend_grade_data(robusta=True):
     
     df_agg_bar["Faktorfelt"] = df_agg_bar["Receptnummer"].map(bar_weights_recipes).fillna(1) / df_agg_bar["råkaffe proportion"]
     df_agg_bar = df_agg_bar[["Receptnummer","Ordre_p","Faktorfelt"]]
-    # Alter input kg to resemble the required weights for the recipes
+    
+    
     filtered_data = pd.merge(
         left = filtered_data
         ,right = df_agg_bar
@@ -131,9 +128,21 @@ def get_blend_grade_data(robusta=True):
         ,on = ["Receptnummer","Ordre_p"])
     filtered_data["Kilo_rist_input"] = filtered_data["Kilo_rist_input"] * filtered_data["Faktorfelt"].fillna(1)
     
+    # Add testing data to dataset
+    df_testing_data = bf.get_test_roastings(robusta,max_tasting_id)
+    filtered_data = pd.concat([filtered_data,df_testing_data],ignore_index=True).reset_index()
+    filtered_data.drop(columns=["index","Faktorfelt"],inplace = True)
+    # Remove duplicates from tastings and add to roaster input
+    df_testing_data = df_testing_data[df_testing_data["Komponent id"] == 1]
+    roaster_input = pd.concat([roaster_input,df_testing_data], ignore_index = True)[roaster_input.columns].reset_index()
     
+    
+    tasting_ids = list(set(filtered_data["Smagningsid"]))
+    X_list = []
+    Y_list = []
     
     for t_id in tasting_ids:
+        
         tasting_data = filtered_data[filtered_data["Smagningsid"] == t_id]
         batch_ids = list(set(tasting_data["Batch id"]))
         prod_ids = list(set(tasting_data["Produktionsordre id"]))
@@ -173,7 +182,6 @@ def get_blend_grade_data(robusta=True):
                         Y_list.append(y_np.flatten())
         # Else we can do the processing on "Batch"-level
         else:
-    
             for b_id in batch_ids:
                 batch_data = tasting_data[tasting_data["Batch id"] == b_id]
                 full_batch = roaster_input[roaster_input["Batch id"] == b_id]
