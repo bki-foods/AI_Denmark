@@ -266,7 +266,8 @@ def get_finished_goods_grades() -> pd.DataFrame():
             	AND S.[Referencetype] = 2
             	AND S.[Referencenummer] IS NOT NULL
                 AND S.[Varenummer] NOT LIKE '1090%'
-                AND S.[Smagningstype] = 4 """
+                AND S.[Smagningstype] = 4
+                AND S.[Id_org_kildenummer] <> 10 """
     df = pd.read_sql(query, bsi.con_ds)
     return df
 
@@ -1103,5 +1104,80 @@ def convert_blends_lists_to_dataframe(blends:list, blend_no_start:int=0)-> pd.Da
                     ,"Proportion": [component_line[1]]})
                 df = pd.concat([df,data], ignore_index=True) # df.append(data, ignore_index = True)
 
+    return df
+
+
+def get_test_roastings(robusta:bool, start_tasting_id:int=0) -> pd.DataFrame():
+    """
+    Returns a pandas dataframe containing all test roastings which have been graded.
+    The data is returned with the same columns as are used in ti_data_preprocessing, assuming no changes
+    in the naming conventions.
+    
+    If robusta parameter is True, the returned data will contain the robusta parameter for green coffee and 
+    final product. Both of these containing values with potential fillna(10).
+    
+    start_tasting_id indicates which number the tasting id sequence for data should start.
+    Defaults to 0
+    """
+
+    query = """ SELECT
+            	CAST(LEFT(BFK.[Registreringstidspunkt],11) AS DATETIME) AS [Dato_r]
+            	,RRP.[Kontraktnummer]
+            	,RRP.[Delivery] AS [Modtagelse]
+            	,BFK.[Varenummer] AS [Sort]
+            	,CAST(LEFT(BFH.[Registreringstidspunkt],11) AS DATETIME) AS [Dato_rist]
+            	,6000000 + S.[Id_org] AS [Produktionsordre id]
+            	,7000000 + S.[Id_org] AS [Batch id]
+            	,COALESCE(BFK.[Vægt],BFK.[Proportion]) AS [Kilo_rist_input]
+            	,8000000 + S.[Id_org] AS [Ordre_rist]
+            	,BFH.[Reference_receptnummer] AS [Receptnummer]
+            	,SUM(COALESCE(BFK.[Vægt],BFK.[Proportion])) OVER (PARTITION BY S.[Id]) AS [Kilo_rist_output]
+            	,BFH.[Farvemåling] AS [Farve]
+            	,S.[Dato] AS [Dato_p]
+                ,9000000 + S.[Id_org] AS [Ordre_p]
+                ,S.[Smag_Syre] AS [Syre_p]
+                ,S.[Smag_Krop] AS [Krop_p]
+                ,S.[Smag_Aroma] AS [Aroma_p]
+                ,S.[Smag_Eftersmag] AS [Eftersmag_p]
+                ,S.[Smag_Robusta] AS [Robusta_p]
+            	,NULL AS [Smagningsid]
+            	,1 AS [Faktorfelt]
+            	,ROW_NUMBER() OVER (PARTITION BY BFK.[Id],S.[Id_org] ORDER BY BFK.[Id]) AS [Komponent id]
+            FROM [cof].[Smageskema] AS S
+            INNER JOIN [cof].[Blend_forsøg_hoved] AS BFH
+            	ON S.[Id_org] = BFH.[Id]
+            INNER JOIN [cof].[Blend_forsøg_komponenter] AS BFK
+            	ON BFH.[Blend_id] = BFK.[Blend_id]
+            INNER JOIN [cof].[Risteri_råkaffe_planlægning] AS RRP
+            	ON BFK.[Modtagelses_id] = RRP.[Id]
+            WHERE S.[Id_org_kildenummer] = 10
+            	AND S.[Smag_Syre] + S.[Smag_Krop] + S.[Smag_Aroma] + S.[Smag_Eftersmag] IS NOT NULL """
+    
+    # Get data for finished products and grades for green coffees
+    df = pd.read_sql(query, bsi.con_ds)
+    tasting_ids = [i + start_tasting_id + 100000 for i in list(range(len(df)))]
+    df["Smagningsid"] = tasting_ids
+    
+    df_grades = get_gc_grades()[["Kontraktnummer","Modtagelse","Syre","Krop","Aroma","Eftersmag","Robusta"]].rename(
+        columns={
+        "Syre": "Syre_r"
+        ,"Krop": "Krop_r"
+        ,"Aroma": "Aroma_r"
+        ,"Eftersmag": "Eftersmag_r"
+        ,"Robusta": "Robusta_r"})
+    #Remove robusta columns to fit existing datamodel for 'true' data
+    if not robusta:
+        df_grades.drop(columns = ["Robusta_r"],inplace = True)
+        df.drop(columns = ["Robusta_p"], inplace = True)
+    else:
+        df_grades["Robusta_r"].fillna(10,inplace = True)
+        df["Robusta_p"].fillna(10,inplace = True)
+        
+    df = pd.merge(
+        left = df
+        ,right = df_grades
+        ,how = "inner"
+        ,on = ["Kontraktnummer", "Modtagelse"])
+    
     return df
 
