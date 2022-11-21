@@ -6,6 +6,8 @@ import pandas as pd
 import numpy as np
 
 
+import sys
+
 robusta = False
 
 # Define bar_recipes for later use to determine whether to proces on batch or production order level
@@ -76,11 +78,11 @@ res3 = pd.merge(roaster_input, res2, on=["Produktionsordre id", "Batch id"])
 res4 = pd.merge(contracts, res3, on=["Kontraktnummer"])
 res5 = pd.merge(raw_grades, res4, on=["Kontraktnummer", "Modtagelse"], how="right")
 raw_success = pd.merge(raw_grades, res4, on=["Kontraktnummer", "Modtagelse"], how="inner")
-#TODO HER!! tilføjet robusta_r
+
 missing_raw = res5[res5["Syre_r"].isna()] \
     .drop(columns=["Dato_r", "Modtagelse", "Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r"]) \
     .drop_duplicates()
-if robusta: # changed from if not robusta --> if robusta
+if robusta:
     missing_raw.drop("Robusta_r", inplace=True, axis=1)
 
 # If no kontrakt/modtagelse has been defined, use data for the last kontrakt graded before the roasting date
@@ -93,23 +95,56 @@ filtered_data = pd.concat([raw_success, found_raw]).sort_values("Dato_r", ascend
     .drop_duplicates(subset=["Kontraktnummer", "Modtagelse", "Produktionsordre id", "Batch id",
                              "Ordre_rist", "Ordre_p", "Kilo_rist_input"])
 
+max_tasting_id = max(list(set(filtered_data["Smagningsid"]))) + 1
+
+
+
+df_agg_bar = filtered_data[filtered_data["Receptnummer"].isin(bar_recipes)].groupby(["Receptnummer","Ordre_p"], dropna=False).agg(
+    {"Kilo_rist_input": "sum"}).reset_index()
+df_agg_bar_order = df_agg_bar.groupby(["Ordre_p"], dropna=False).agg(
+    {"Kilo_rist_input": "sum"})
+df_agg_bar = pd.merge(
+    left = df_agg_bar
+    ,right = df_agg_bar_order
+    ,how = "left"
+    ,on = "Ordre_p")
+
+df_agg_bar["råkaffe proportion"] = df_agg_bar["Kilo_rist_input_x"] / df_agg_bar["Kilo_rist_input_y"]
+bar_weights_recipes = {"10401005":0.65,"10401207":0.35}
+
+df_agg_bar["Faktorfelt"] = df_agg_bar["Receptnummer"].map(bar_weights_recipes).fillna(1) / df_agg_bar["råkaffe proportion"]
+df_agg_bar = df_agg_bar[["Receptnummer","Ordre_p","Faktorfelt"]]
+
+
+filtered_data = pd.merge(
+    left = filtered_data
+    ,right = df_agg_bar
+    ,how = "left"
+    ,on = ["Receptnummer","Ordre_p"])
+filtered_data["Kilo_rist_input"] = filtered_data["Kilo_rist_input"] * filtered_data["Faktorfelt"].fillna(1)
+
+# Add testing data to dataset
+df_testing_data = bf.get_test_roastings(robusta,max_tasting_id)
+filtered_data = pd.concat([filtered_data,df_testing_data],ignore_index=True).reset_index()
+filtered_data.drop(columns=["index","Faktorfelt"],inplace = True)
+# Remove duplicates from tastings and add to roaster input
+df_testing_data = df_testing_data[df_testing_data["Komponent id"] == 1]
+roaster_input = pd.concat([roaster_input,df_testing_data], ignore_index = True)[roaster_input.columns].reset_index()
+
+
+sys.exit()
+
 tasting_ids = list(set(filtered_data["Smagningsid"]))
-
-# =============================================================================
-#     TEMP_DF_NAN = filtered_data[filtered_data[["Robusta_r","Robusta_p"]].isna().any(axis=1)]
-#     print(TEMP_DF_NAN)
-#     return TEMP_DF_NAN
-# =============================================================================
-
 X_list = []
 Y_list = []
 
 for t_id in tasting_ids:
+    
     tasting_data = filtered_data[filtered_data["Smagningsid"] == t_id]
     batch_ids = list(set(tasting_data["Batch id"]))
     prod_ids = list(set(tasting_data["Produktionsordre id"]))
 
-    # If the produced recipes are used for BAR blends, do the analysis on "Produktionsordre"-level # Weigh 10401005/10401207 as 2/3 and 1/3
+    # If the produced recipes are used for BAR blends, do the analysis on "Produktionsordre"-level
     if not set(tasting_data['Receptnummer']).isdisjoint(bar_recipes):
         for p_id in prod_ids:
             prod_data = tasting_data[tasting_data["Produktionsordre id"] == p_id]
@@ -142,9 +177,40 @@ for t_id in tasting_ids:
                     farve = unique_contracts[["Farve"]][0:1].to_numpy()
                     X_list.append(np.append(x_np.flatten(), farve))
                     Y_list.append(y_np.flatten())
+    # Else we can do the processing on "Batch"-level
+    else:
+        for b_id in batch_ids:
+            batch_data = tasting_data[tasting_data["Batch id"] == b_id]
+            full_batch = roaster_input[roaster_input["Batch id"] == b_id]
+            weight_tasted_batch = sum(batch_data["Kilo_rist_input"])
+            weight_full_batch = sum(full_batch["Kilo_rist_input"])
+            if 1.0 - weight_tasted_batch / weight_full_batch < 0.1:
+                weight_per_contract = batch_data[["Kontraktnummer", "Modtagelse", "Kilo_rist_input"]] \
+                    .groupby(["Kontraktnummer", "Modtagelse"]).sum()
+                unique_contracts = batch_data.groupby(["Kontraktnummer", "Modtagelse"]).mean()
 
-# return np.array(X_list), np.array(Y_list)
+                if 0 < len(unique_contracts) <= 7:
+                    unique_contracts["Proportion"] = weight_per_contract["Kilo_rist_input"] / \
+                                                     sum(weight_per_contract["Kilo_rist_input"])
 
-# temp_df = get_blend_grade_data(robusta=True)
+                    if robusta:
+                        x_data = unique_contracts[
+                            ["Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r", "Robusta_r", "Proportion"]]
+                        y_data = unique_contracts[["Syre_p", "Krop_p", "Aroma_p", "Eftersmag_p", "Robusta_p"]][0:1]
+                    else:
+                        x_data = unique_contracts[["Syre_r", "Krop_r", "Aroma_r", "Eftersmag_r", "Proportion"]]
+                        y_data = unique_contracts[["Syre_p", "Krop_p", "Aroma_p", "Eftersmag_p"]][0:1]
+
+                    x_np = x_data.to_numpy()
+                    y_np = y_data.to_numpy()
+                    if len(unique_contracts) < 7:
+                        x_np = np.pad(x_np, constant_values=0, pad_width=[[0, 7 - len(unique_contracts)], [0, 0]])
+
+                    farve = unique_contracts[["Farve"]][0:1].to_numpy()
+                    X_list.append(np.append(x_np.flatten(), farve))
+                    Y_list.append(y_np.flatten())
+
+X_list = np.array(X_list)
+Y_list = np.array(Y_list)
 
 
