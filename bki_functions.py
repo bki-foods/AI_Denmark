@@ -135,7 +135,7 @@ def get_recipe_calculated_costs(recipe:str) -> float:
                 WHERE PBV.[Status] = 1 AND I.[No_] = '{recipe}'
                 ORDER BY PBV.[Starting Date] DESC )
                 SELECT
-                	ISNULL(SUM(PBL.[Quantity] * I2.[Standard Cost]),0) AS [Price]
+                	ISNULL(SUM(PBL.[Quantity] * I.[Standard Cost]),0) AS [Price]
 					,ISNULL(SUM(PBL.[Quantity] * FUC.[Forecast Unit Cost +1M]),0) AS [Price +1M]
 					,ISNULL(SUM(PBL.[Quantity] * FUC.[Forecast Unit Cost +2M]),0) AS [Price +2M]
 					,ISNULL(SUM(PBL.[Quantity] * FUC.[Forecast Unit Cost +3M]),0) AS [Price +3M]
@@ -145,10 +145,8 @@ def get_recipe_calculated_costs(recipe:str) -> float:
                 	AND PBL.[Version Code] = BOM_VER.[Version Code]
                 INNER JOIN [dbo].[BKI foods a_s$Item] AS I
                 	ON PBL.[No_] = I.[No_]
-                INNER JOIN [dbo].[BKI foods a_s$Item] AS I2
-                	ON '1010' + RIGHT(I.[No_],4) = I2.[No_]
 				LEFT JOIN [dbo].[BKI foods a_s$Forecast Item Unit Cost] AS FUC
-					ON '1010' + RIGHT(PBL.[No_],4) = FUC.[Item No_]
+					ON PBL.[No_] = FUC.[Item No_]
                 WHERE I.[Item Category Code] = 'RÅKAFFE' """
     df = pd.read_sql(query, bsi.con_nav)
     
@@ -165,16 +163,11 @@ def get_coffee_contracts() -> pd.DataFrame():
     """
     Returns information from Navision for coffee contracts as a Pandas DataFrame.
     """
-    query = """ SELECT PH.[No_] AS [Kontraktnummer]	,PH.[Buy-from Vendor No_] AS [Leverandør]
-        	,CR.[Name] AS [Oprindelsesland]
-            ,CASE WHEN PH.[Harvest] = 0	THEN ''	WHEN PH.[Harvest] = 1 THEN 'Ny'
-        		WHEN PH.[Harvest] = 2 THEN 'Gammel' WHEN PH.[Harvest] = 3 THEN 'Blandet' END AS [Høst]
-        	,CASE WHEN PH.[Harvest Year] = 0 THEN NULL ELSE PH.[Harvest Year] END AS [Høstår]
-        	,PH.[Screen Size] AS [Screensize]
+    query = """ SELECT PH.[No_] AS [Kontraktnummer]
         	,CASE WHEN PH.[Washed Coffee] = 1 THEN 'Vasket'
-                WHEN PH.[Washed Coffee] = 0 AND PH.[No_] >= '21-037' THEN 'Uvasket'
+                WHEN PH.[Washed Coffee] = 0 AND PH.[No_] >= '21-037' THEN 'Ej vasket'
         		ELSE NULL END AS [Metode]
-        	,PL.[No_] AS [Sort] ,I.[Mærkningsordning] ,PH.[Differentials] AS [Differentiale]
+        	,I.[No_] AS [Sort] ,I.[Mærkningsordning] ,PH.[Differentials] AS [Differentiale]
             ,I.[Description] AS [Varenavn], I.[Unit Cost] AS [Kostpris], I.[Standard Cost]
 			,FUC.[Forecast Unit Cost +1M], FUC.[Forecast Unit Cost +2M], FUC.[Forecast Unit Cost +3M]
 			,CASE WHEN UPPER(I.[Mærkningsordning]) LIKE '%FAIR%' THEN 1 ELSE 0 END AS [Fairtrade]
@@ -183,19 +176,22 @@ def get_coffee_contracts() -> pd.DataFrame():
             WHEN UPPER(I.[Mærkningsordning]) LIKE '%UTZ%' THEN 1 ELSE 0 END AS [Rainforest]
 			,CASE WHEN UPPER(I.[Mærkningsordning]) = '' THEN 1 ELSE 0 END AS [Konventionel]
 			,CASE WHEN UPPER(I.[Description]) LIKE '%ROBUSTA%' THEN 'R' ELSE 'A' END AS [Kaffetype]
+			--,PRI.[DENSITY] AS [Volume sætpunkt],PRI.[HUMIDITY] AS [Vandprocent sætpunkt]
             FROM [dbo].[BKI foods a_s$Purchase Header] AS PH
             INNER JOIN [dbo].[BKI foods a_s$Purchase Line] AS PL
             	ON PH.[No_] = PL.[Document No_]
             	AND [PL].[Line No_] = 10000
 				AND PL.[Type] = 2
             INNER JOIN [dbo].[BKI foods a_s$Item] AS I
-            	ON PL.[No_] = I.[No_]
-            LEFT JOIN [dbo].[BKI foods a_s$Country_Region] AS CR
-            	ON PH.[Pay-to Country_Region Code] = CR.[Code]
+            	ON '1020' + RIGHT(PL.[No_],4) = I.[No_]
+			--INNER JOIN [dbo].[BKI foods a_s$PROBAT Item] AS PRI
+				--ON I.[No_] = PRI.[CUSTOMER_CODE]
 			LEFT JOIN [dbo].[BKI foods a_s$Forecast Item Unit Cost] AS FUC
 				ON I.[No_] = FUC.[Item No_]
             WHERE PH.[Kontrakt] = 1
-				AND I.[No_] NOT LIKE '1012%' """
+				AND I.[No_] NOT LIKE '1012%'
+				AND I.[Sub Product Group Code] NOT IN ('111','112')
+				AND I.[Withdrawal Status] <> 2 """
     df = pd.read_sql(query, bsi.con_nav)
     
     # Ensure forecast unit costs have a value, just punish the blend enough that it's obvious that there is an issue with prices
@@ -673,7 +669,7 @@ def get_all_available_quantities(location_filter: dict, min_quantity: float, cer
     # Remove any unnecesary columns from dataframe | Sofiero, SLOW, Wilson
     df.drop(["Syre_x","Aroma_x","Krop_x","Eftersmag_x","Robusta_x"
              ,"Syre_y","Aroma_y","Krop_y","Eftersmag_y","Robusta_y"
-             ,"Lokation_filter","Leverandør","Høst","Høstår","Metode"
+             ,"Lokation_filter","Metode"
              ,"Fairtrade","Økologi","Rainforest","Konventionel","Kaffetype"]
             ,inplace=True, axis=1)
     # If the available amounts are requested as aggregated values, do this
